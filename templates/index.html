@@ -2,171 +2,627 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>晋江版权维权系统</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-         background: #f5f5f5; color: #333; }
-  .header { background: #fff; border-bottom: 1px solid #e0e0e0;
-            padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
-  .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
-  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-  .controls input { flex: 1; min-width: 200px; padding: 8px 12px;
-                    border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-  .controls select { padding: 8px 12px; border: 1px solid #ddd;
-                     border-radius: 8px; font-size: 14px; background: #fff; }
-  .stats { padding: 12px 20px; font-size: 13px; color: #888; }
-  .list { padding: 0 20px 20px; }
-  .card { background: #fff; border-radius: 12px; margin-bottom: 10px;
-          border: 1px solid #e8e8e8; overflow: hidden; }
-  .card-header { padding: 14px 16px; cursor: pointer; display: flex;
-                 align-items: center; gap: 12px; }
-  .card-header:hover { background: #fafafa; }
-  .book-title { font-size: 16px; font-weight: 600; flex: 1; }
-  .book-author { font-size: 13px; color: #888; }
-  .fav { font-size: 13px; color: #e74c3c; font-weight: 500; white-space: nowrap; }
-  .status-badge { font-size: 11px; padding: 3px 8px; border-radius: 20px;
-                  font-weight: 500; white-space: nowrap; }
-  .status-待投诉 { background: #fff3cd; color: #856404; }
-  .status-已投诉 { background: #d4edda; color: #155724; }
-  .status-未发现盗版 { background: #e2e3e5; color: #6c757d; }
-  .card-body { display: none; border-top: 1px solid #f0f0f0; padding: 12px 16px; }
-  .card-body.open { display: block; }
-  .links-title { font-size: 13px; color: #888; margin-bottom: 8px; }
-  .link-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .link-item a { font-size: 13px; color: #2563eb; text-decoration: none;
-                 flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .link-item a:hover { text-decoration: underline; }
-  .btn-copy { font-size: 11px; padding: 3px 8px; border: 1px solid #ddd;
-              border-radius: 6px; cursor: pointer; background: #fff; color: #666; }
-  .btn-copy:hover { background: #f0f0f0; }
-  .no-links { font-size: 13px; color: #aaa; font-style: italic; }
-  .card-footer { display: flex; align-items: center; gap: 10px;
-                 margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
-  .card-footer label { font-size: 13px; color: #666; }
-  .card-footer select { font-size: 13px; padding: 4px 8px; border: 1px solid #ddd;
-                        border-radius: 6px; background: #fff; }
-  .jj-link { font-size: 12px; color: #aaa; text-decoration: none; }
-  .jj-link:hover { color: #666; }
-  .empty { text-align: center; padding: 60px 20px; color: #aaa; font-size: 15px; }
-  .arrow { font-size: 12px; color: #bbb; transition: transform .2s; }
-  .arrow.open { transform: rotate(90deg); }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f13;
+  --bg2: #17171d;
+  --bg3: #1e1e26;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6f0;
+  --text2: #9993b0;
+  --text3: #5c5875;
+  --accent: #c084fc;
+  --accent2: #a855f7;
+  --red: #f87171;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --blue: #60a5fa;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+html { font-size: 15px; }
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(15,15,19,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px 12px;
+}
+.header-top {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.header-title {
+  font-size: 16px; font-weight: 700;
+  background: linear-gradient(135deg, #c084fc, #818cf8);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  flex: 1;
+}
+.stats-pill {
+  font-size: 11px; color: var(--text2);
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ── Search ── */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-wrap input {
+  width: 100%; padding: 10px 14px 10px 38px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 14px; font-family: inherit;
+  transition: border-color .2s;
+}
+.search-wrap input:focus { outline: none; border-color: var(--accent2); }
+.search-wrap input::placeholder { color: var(--text3); }
+.search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text3); font-size: 15px; pointer-events: none;
+}
+
+/* ── Filter row ── */
+.filter-row {
+  display: flex; gap: 8px; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+.filter-row::-webkit-scrollbar { display: none; }
+
+.filter-btn {
+  flex-shrink: 0; padding: 6px 12px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text2);
+  font-size: 12px; font-family: inherit;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.filter-btn:hover { border-color: var(--border2); color: var(--text); }
+.filter-btn.active {
+  background: var(--accent2); border-color: var(--accent2);
+  color: #fff;
+}
+.filter-btn.has-value {
+  border-color: var(--accent2); color: var(--accent);
+}
+
+/* ── Filter panel ── */
+.filter-panel {
+  display: none;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.filter-panel.open { display: block; }
+.filter-section { margin-bottom: 14px; }
+.filter-section:last-child { margin-bottom: 0; }
+.filter-label {
+  font-size: 11px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: 8px;
+}
+.tag-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.tag-chip {
+  padding: 5px 11px; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 20px;
+  font-size: 12px; color: var(--text2);
+  cursor: pointer; transition: all .15s;
+}
+.tag-chip:hover { border-color: var(--border2); color: var(--text); }
+.tag-chip.active {
+  background: rgba(168,85,247,.15);
+  border-color: var(--accent2); color: var(--accent);
+}
+.range-row { display: flex; align-items: center; gap: 10px; }
+.range-row input[type=range] {
+  flex: 1; accent-color: var(--accent2);
+  height: 4px;
+}
+.range-val { font-size: 12px; color: var(--text2); min-width: 60px; }
+
+/* ── List ── */
+.list-wrap { padding: 12px 12px 80px; }
+
+/* ── Card ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--border2); }
+
+.card-head {
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.card-main { flex: 1; min-width: 0; }
+.card-title-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px; flex-wrap: wrap;
+}
+.book-name {
+  font-size: 15px; font-weight: 700;
+  color: var(--text);
+}
+.book-author { font-size: 12px; color: var(--text2); }
+.card-meta {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.meta-tag {
+  font-size: 11px; padding: 2px 7px;
+  border-radius: 4px; border: 1px solid var(--border);
+  color: var(--text3);
+}
+.fav-count {
+  font-size: 11px; color: var(--red);
+  display: flex; align-items: center; gap: 3px;
+}
+
+.card-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 6px; flex-shrink: 0;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.pending { background: var(--amber); }
+.status-dot.done { background: var(--green); }
+.status-dot.none { background: var(--text3); }
+
+.piracy-count {
+  font-size: 11px; padding: 2px 8px;
+  border-radius: 4px; font-weight: 500;
+}
+.piracy-count.has-piracy {
+  background: rgba(248,113,113,.12);
+  color: var(--red); border: 1px solid rgba(248,113,113,.25);
+}
+.piracy-count.no-piracy {
+  background: var(--bg3);
+  color: var(--text3); border: 1px solid var(--border);
+}
+
+.chevron {
+  font-size: 12px; color: var(--text3);
+  transition: transform .2s; margin-top: 2px;
+}
+.chevron.open { transform: rotate(90deg); }
+
+/* ── Card body ── */
+.card-body { display: none; border-top: 1px solid var(--border); }
+.card-body.open { display: block; }
+
+.link-list { padding: 10px 14px; }
+.link-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.link-item:last-child { border-bottom: none; }
+.link-num {
+  font-size: 11px; color: var(--text3);
+  min-width: 18px;
+}
+.link-url {
+  flex: 1; min-width: 0;
+  font-size: 12px; color: var(--blue);
+  text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.link-url:hover { text-decoration: underline; }
+.btn-copy {
+  flex-shrink: 0; font-size: 11px;
+  padding: 3px 8px; border-radius: 5px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.btn-copy:hover { border-color: var(--border2); color: var(--text); }
+.btn-copy.copied { color: var(--green); border-color: var(--green); }
+
+.no-links {
+  padding: 14px; text-align: center;
+  font-size: 13px; color: var(--text3);
+}
+
+.card-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.footer-label { font-size: 12px; color: var(--text3); }
+.status-select {
+  font-size: 12px; padding: 4px 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: inherit;
+  cursor: pointer;
+}
+.status-select:focus { outline: none; border-color: var(--accent2); }
+.jj-link {
+  font-size: 12px; color: var(--text3);
+  text-decoration: none; margin-left: auto;
+}
+.jj-link:hover { color: var(--accent); }
+
+/* ── Empty ── */
+.empty {
+  text-align: center; padding: 60px 20px;
+  color: var(--text3); font-size: 14px;
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+/* ── Load more ── */
+.load-more-wrap { text-align: center; padding: 16px; }
+.load-more-btn {
+  padding: 10px 24px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text2);
+  font-size: 13px; font-family: inherit;
+  cursor: pointer; transition: all .15s;
+}
+.load-more-btn:hover { border-color: var(--border2); color: var(--text); }
+
+/* ── PC layout ── */
+@media (min-width: 768px) {
+  .header { padding: 16px 24px 14px; }
+  .header-top { margin-bottom: 14px; }
+  .header-title { font-size: 18px; }
+  .controls-row {
+    display: flex; gap: 12px; align-items: center;
+  }
+  .search-wrap { flex: 1; margin-bottom: 0; }
+  .filter-row { flex-wrap: wrap; overflow: visible; }
+  .list-wrap { padding: 16px 24px 60px; max-width: 900px; margin: 0 auto; }
+  .card-head { padding: 14px 18px; }
+  .link-list { padding: 10px 18px; }
+  .card-footer { padding: 10px 18px; }
+  .book-name { font-size: 16px; }
+}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>晋江版权维权系统</h1>
-  <div class="controls">
-    <input type="text" id="search" placeholder="搜索书名或作者..." oninput="filterBooks()">
-    <select id="statusFilter" onchange="filterBooks()">
-      <option value="">全部状态</option>
-      <option value="待投诉">待投诉</option>
-      <option value="已投诉">已投诉</option>
-      <option value="未发现盗版">未发现盗版</option>
-    </select>
+  <div class="header-top">
+    <div class="header-title">晋江维权系统</div>
+    <div class="stats-pill" id="stats">加载中...</div>
+  </div>
+  <div class="controls-row">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="搜索书名、作者..." oninput="onFilter()">
+    </div>
+    <div class="filter-row" id="filterRow">
+      <button class="filter-btn" id="btnStatus" onclick="togglePanel('status')">状态 ▾</button>
+      <button class="filter-btn" id="btnType" onclick="togglePanel('type')">类型 ▾</button>
+      <button class="filter-btn" id="btnTag" onclick="togglePanel('tag')">标签 ▾</button>
+      <button class="filter-btn" id="btnFav" onclick="togglePanel('fav')">收藏数 ▾</button>
+      <button class="filter-btn" id="btnPiracy" onclick="togglePanel('piracy')">盗版 ▾</button>
+      <button class="filter-btn" onclick="clearAll()" style="color:var(--text3)">清除</button>
+    </div>
   </div>
 </div>
 
-<div class="stats" id="stats">加载中...</div>
-<div class="list" id="list"></div>
+<!-- 筛选面板 -->
+<div class="filter-panel" id="panel-status">
+  <div class="filter-section">
+    <div class="filter-label">投诉状态</div>
+    <div class="tag-grid" id="statusChips"></div>
+  </div>
+</div>
+<div class="filter-panel" id="panel-type">
+  <div class="filter-section">
+    <div class="filter-label">作品类型</div>
+    <div class="tag-grid" id="typeChips"></div>
+  </div>
+</div>
+<div class="filter-panel" id="panel-tag">
+  <div class="filter-section">
+    <div class="filter-label">标签（可多选）</div>
+    <div class="tag-grid" id="tagChips"></div>
+  </div>
+</div>
+<div class="filter-panel" id="panel-fav">
+  <div class="filter-section">
+    <div class="filter-label">最低收藏数</div>
+    <div class="range-row">
+      <input type="range" id="favRange" min="0" max="300" value="0" step="5" oninput="onFavRange()">
+      <span class="range-val" id="favRangeVal">不限</span>
+    </div>
+  </div>
+</div>
+<div class="filter-panel" id="panel-piracy">
+  <div class="filter-section">
+    <div class="filter-label">盗版情况</div>
+    <div class="tag-grid">
+      <div class="tag-chip" data-piracy="has" onclick="togglePiracy(this)">有盗版链接</div>
+      <div class="tag-chip" data-piracy="none" onclick="togglePiracy(this)">未发现盗版</div>
+    </div>
+  </div>
+</div>
+
+<div class="list-wrap">
+  <div id="list"></div>
+  <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+    <button class="load-more-btn" onclick="loadMore()">加载更多</button>
+  </div>
+</div>
 
 <script>
 let allBooks = [];
+let filtered = [];
+let PAGE_SIZE = 30;
+let currentPage = 1;
 
-async function loadBooks() {
-  const res = await fetch('/api/books');
-  allBooks = await res.json();
-  renderBooks(allBooks);
+let activePanel = null;
+let selStatus = '';
+let selType = '';
+let selTags = new Set();
+let selPiracy = '';
+let favMin = 0;
+
+async function init() {
+  try {
+    const res = await fetch('/api/books');
+    allBooks = await res.json();
+    buildFilterOptions();
+    applyFilter();
+  } catch(e) {
+    document.getElementById('list').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
+  }
 }
 
-function filterBooks() {
+function buildFilterOptions() {
+  // 状态
+  const statuses = ['待投诉','已投诉','未发现盗版'];
+  document.getElementById('statusChips').innerHTML =
+    statuses.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'status')">${s}</div>`).join('');
+
+  // 类型
+  const types = [...new Set(allBooks.map(b => b['类型']).filter(Boolean))].sort();
+  document.getElementById('typeChips').innerHTML =
+    types.map(t => `<div class="tag-chip" data-val="${t}" onclick="toggleChip(this,'type')">${t}</div>`).join('');
+
+  // 标签
+  const tagSet = new Set();
+  allBooks.forEach(b => (b['标签'] || []).forEach(t => tagSet.add(t)));
+  document.getElementById('tagChips').innerHTML =
+    [...tagSet].sort().map(t =>
+      `<div class="tag-chip" data-val="${t}" onclick="toggleTag(this)">${t}</div>`
+    ).join('') || '<span style="color:var(--text3);font-size:12px">暂无标签数据</span>';
+
+  // 收藏数最大值
+  const maxFav = Math.max(...allBooks.map(b => parseFavNum(b['收藏数'])));
+  const slider = document.getElementById('favRange');
+  slider.max = Math.ceil(maxFav / 10000) * 10;
+}
+
+function parseFavNum(str) {
+  if (!str || str === '未获取') return 0;
+  return parseInt(str.replace(/,/g,'')) || 0;
+}
+
+function togglePanel(name) {
+  const panel = document.getElementById(`panel-${name}`);
+  if (activePanel && activePanel !== name) {
+    document.getElementById(`panel-${activePanel}`).classList.remove('open');
+  }
+  panel.classList.toggle('open');
+  activePanel = panel.classList.contains('open') ? name : null;
+}
+
+function toggleChip(el, type) {
+  const val = el.dataset.val;
+  const container = el.parentElement;
+  container.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+  if (type === 'status') {
+    selStatus = selStatus === val ? '' : val;
+    if (selStatus) el.classList.add('active');
+    document.getElementById('btnStatus').classList.toggle('has-value', !!selStatus);
+  } else {
+    selType = selType === val ? '' : val;
+    if (selType) el.classList.add('active');
+    document.getElementById('btnType').classList.toggle('has-value', !!selType);
+  }
+  applyFilter();
+}
+
+function toggleTag(el) {
+  const val = el.dataset.val;
+  if (selTags.has(val)) { selTags.delete(val); el.classList.remove('active'); }
+  else { selTags.add(val); el.classList.add('active'); }
+  document.getElementById('btnTag').classList.toggle('has-value', selTags.size > 0);
+  applyFilter();
+}
+
+function togglePiracy(el) {
+  const val = el.dataset.piracy;
+  el.parentElement.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+  selPiracy = selPiracy === val ? '' : val;
+  if (selPiracy) el.classList.add('active');
+  document.getElementById('btnPiracy').classList.toggle('has-value', !!selPiracy);
+  applyFilter();
+}
+
+function onFavRange() {
+  const v = parseInt(document.getElementById('favRange').value);
+  favMin = v * 10000;
+  document.getElementById('favRangeVal').textContent = v === 0 ? '不限' : `${v}万+`;
+  document.getElementById('btnFav').classList.toggle('has-value', v > 0);
+  applyFilter();
+}
+
+function clearAll() {
+  selStatus = ''; selType = ''; selTags.clear(); selPiracy = ''; favMin = 0;
+  document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('has-value'));
+  document.getElementById('favRange').value = 0;
+  document.getElementById('favRangeVal').textContent = '不限';
+  document.getElementById('search').value = '';
+  applyFilter();
+}
+
+function onFilter() { applyFilter(); }
+
+function applyFilter() {
   const q = document.getElementById('search').value.trim().toLowerCase();
-  const status = document.getElementById('statusFilter').value;
-  let filtered = allBooks;
-  if (q) filtered = filtered.filter(b =>
-    b['书名'].toLowerCase().includes(q) || b['作者'].toLowerCase().includes(q));
-  if (status) filtered = filtered.filter(b => b['投诉状态'] === status);
-  renderBooks(filtered);
+  filtered = allBooks.filter(b => {
+    if (q && !b['书名'].toLowerCase().includes(q) && !b['作者'].toLowerCase().includes(q)) return false;
+    if (selStatus && b['投诉状态'] !== selStatus) return false;
+    if (selType && b['类型'] !== selType) return false;
+    if (selTags.size > 0) {
+      const bTags = b['标签'] || [];
+      if (![...selTags].every(t => bTags.includes(t))) return false;
+    }
+    if (favMin > 0 && parseFavNum(b['收藏数']) < favMin) return false;
+    if (selPiracy === 'has' && (!b['盗版链接'] || b['盗版链接'].length === 0)) return false;
+    if (selPiracy === 'none' && b['盗版链接'] && b['盗版链接'].length > 0) return false;
+    return true;
+  });
+  currentPage = 1;
+  renderList();
 }
 
-function renderBooks(books) {
+function renderList() {
   const list = document.getElementById('list');
-  const stats = document.getElementById('stats');
-  const piracyCount = books.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
-  stats.textContent = `共 ${books.length} 本书，其中 ${piracyCount} 本发现盗版链接`;
+  const total = filtered.length;
+  const piracyTotal = filtered.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
+  document.getElementById('stats').textContent = `${total} 本 · ${piracyTotal} 本有盗版`;
 
-  if (books.length === 0) {
-    list.innerHTML = '<div class="empty">没有找到符合条件的书目</div>';
+  if (total === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>没有符合条件的书目</div>';
+    document.getElementById('loadMoreWrap').style.display = 'none';
     return;
   }
 
-  list.innerHTML = books.map((book, i) => {
-    const links = book['盗版链接'] || [];
-    const status = book['投诉状态'] || '待投诉';
-    const firstLink = links[0] || null;
-    return `
-    <div class="card" id="card-${i}">
-      <div class="card-header" onclick="toggleCard(${i})">
-        <span class="arrow" id="arrow-${i}">▶</span>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="book-title">${book['书名']}</span>
-            <span class="book-author">${book['作者']}</span>
-          </div>
-          <div style="font-size:12px;color:#aaa;margin-top:2px">${book['类型'] || ''}</div>
-        </div>
-        <span class="fav">♥ ${book['收藏数']}</span>
-        <span class="status-badge status-${status}">${status}</span>
-        ${firstLink ? `<a href="${firstLink}" target="_blank" onclick="event.stopPropagation()"
-          style="font-size:12px;padding:5px 10px;background:#e74c3c;color:#fff;
-          border-radius:6px;text-decoration:none;white-space:nowrap">直接打开</a>` : ''}
-      </div>
-      <div class="card-body" id="body-${i}">
-        <div class="links-title">盗版链接（${links.length} 条）</div>
-        ${links.length > 0 ? links.map((url, j) => `
-          <div class="link-item">
-            <span style="font-size:12px;color:#aaa;min-width:20px">${j+1}</span>
-            <a href="${url}" target="_blank">${url}</a>
-            <button class="btn-copy" onclick="copyLink('${url}')">复制</button>
-          </div>`).join('') : '<div class="no-links">未发现盗版链接</div>'}
-        <div class="card-footer">
-          <label>投诉状态：</label>
-          <select onchange="updateStatus('${book['书名']}', this.value)">
-            <option ${status==='待投诉'?'selected':''}>待投诉</option>
-            <option ${status==='已投诉'?'selected':''}>已投诉</option>
-            <option ${status==='未发现盗版'?'selected':''}>未发现盗版</option>
-          </select>
-          <a href="${book['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  const pageData = filtered.slice(0, currentPage * PAGE_SIZE);
+  list.innerHTML = pageData.map((b, i) => renderCard(b, i)).join('');
+
+  const hasMore = total > currentPage * PAGE_SIZE;
+  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
 }
 
-function toggleCard(i) {
-  const body = document.getElementById(`body-${i}`);
-  const arrow = document.getElementById(`arrow-${i}`);
-  body.classList.toggle('open');
-  arrow.classList.toggle('open');
+function loadMore() {
+  currentPage++;
+  const list = document.getElementById('list');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageData = filtered.slice(start, currentPage * PAGE_SIZE);
+  list.insertAdjacentHTML('beforeend', pageData.map((b, i) => renderCard(b, start + i)).join(''));
+  const hasMore = filtered.length > currentPage * PAGE_SIZE;
+  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
 }
 
-function copyLink(url) {
-  navigator.clipboard.writeText(url).then(() => alert('已复制'));
+function renderCard(b, idx) {
+  const links = b['盗版链接'] || [];
+  const status = b['投诉状态'] || '待投诉';
+  const dotClass = status === '已投诉' ? 'done' : status === '未发现盗版' ? 'none' : 'pending';
+  const tags = (b['标签'] || []).slice(0, 4);
+  const favNum = parseFavNum(b['收藏数']);
+  const favStr = favNum >= 10000 ? `${(favNum/10000).toFixed(1)}万` : b['收藏数'];
+
+  const linksHtml = links.length > 0
+    ? links.map((url, j) => `
+        <div class="link-item">
+          <span class="link-num">${j+1}</span>
+          <a class="link-url" href="${url}" target="_blank" rel="noopener">${url}</a>
+          <button class="btn-copy" onclick="copyUrl(this,'${url.replace(/'/g,"\\'")}')">复制</button>
+        </div>`).join('')
+    : '<div class="no-links">未发现盗版链接</div>';
+
+  return `
+  <div class="card" id="card-${idx}">
+    <div class="card-head" onclick="toggleCard(${idx})">
+      <div class="card-main">
+        <div class="card-title-row">
+          <span class="book-name">${b['书名']}</span>
+          <span class="book-author">${b['作者']}</span>
+        </div>
+        <div class="card-meta">
+          ${b['类型'] ? `<span class="meta-tag">${b['类型']}</span>` : ''}
+          ${tags.map(t => `<span class="meta-tag" style="color:var(--accent);border-color:rgba(168,85,247,.25)">${t}</span>`).join('')}
+          <span class="fav-count">♥ ${favStr}</span>
+        </div>
+      </div>
+      <div class="card-right">
+        <div class="status-dot ${dotClass}" title="${status}"></div>
+        <span class="piracy-count ${links.length > 0 ? 'has-piracy' : 'no-piracy'}">
+          ${links.length > 0 ? `${links.length}条盗版` : '未发现'}
+        </span>
+        <span class="chevron" id="chev-${idx}">▶</span>
+      </div>
+    </div>
+    <div class="card-body" id="body-${idx}">
+      <div class="link-list">${linksHtml}</div>
+      <div class="card-footer">
+        <span class="footer-label">投诉状态</span>
+        <select class="status-select" onchange="updateStatus('${b['书名'].replace(/'/g,"\\'")}', this.value)">
+          <option ${status==='待投诉'?'selected':''}>待投诉</option>
+          <option ${status==='已投诉'?'selected':''}>已投诉</option>
+          <option ${status==='未发现盗版'?'selected':''}>未发现盗版</option>
+        </select>
+        <a href="${b['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleCard(idx) {
+  document.getElementById(`body-${idx}`).classList.toggle('open');
+  document.getElementById(`chev-${idx}`).classList.toggle('open');
+}
+
+function copyUrl(btn, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
+  });
 }
 
 async function updateStatus(bookName, newStatus) {
+  const book = allBooks.find(b => b['书名'] === bookName);
+  if (book) book['投诉状态'] = newStatus;
   await fetch('/api/update_status', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({'书名': bookName, '投诉状态': newStatus})
   });
-  const idx = allBooks.findIndex(b => b['书名'] === bookName);
-  if (idx !== -1) allBooks[idx]['投诉状态'] = newStatus;
 }
 
-loadBooks();
+// 点击面板外关闭
+document.addEventListener('click', e => {
+  if (!e.target.closest('.filter-panel') && !e.target.closest('.filter-btn')) {
+    document.querySelectorAll('.filter-panel').forEach(p => p.classList.remove('open'));
+    activePanel = null;
+  }
+});
+
+init();
 </script>
 </body>
 </html>
