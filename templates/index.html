@@ -286,6 +286,116 @@ body {
 }
 .load-more-btn:hover { border-color: var(--border2); color: var(--text); }
 
+/* ── View / Sort controls ── */
+.ctrl-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.ctrl-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.ctrl-btn {
+  padding: 5px 10px; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text2); font-size: 12px; font-family: inherit;
+  cursor: pointer; transition: all .15s;
+}
+.ctrl-btn:hover { border-color: var(--border2); color: var(--text); }
+.ctrl-btn.active {
+  background: rgba(168,85,247,.15);
+  border-color: var(--accent2); color: var(--accent);
+}
+.ctrl-sep { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
+.ctrl-label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+/* ── Grid layout ── */
+.grid-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.list-wrap.grid-mode { padding: 0 0 80px !important; }
+
+/* ── Grid card ── */
+.g-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+  cursor: pointer; transition: border-color .2s, transform .15s, box-shadow .2s;
+  display: flex; flex-direction: column; gap: 7px;
+  position: relative; min-height: 130px;
+}
+.g-card:hover {
+  border-color: var(--accent2); transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(168,85,247,.12);
+}
+.g-card-title {
+  font-size: 14px; font-weight: 700; color: var(--text);
+  overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-height: 1.4; padding-right: 14px;
+}
+.g-card-author { font-size: 11px; color: var(--text2); }
+.g-card-tags { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.g-card-tag {
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 4px; border: 1px solid var(--border); color: var(--text3);
+}
+.g-card-tag.type { border-color: rgba(96,165,250,.3); color: var(--blue); }
+.g-card-tag.content { border-color: rgba(168,85,247,.25); color: var(--accent); }
+.g-card-bottom {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-top: auto; padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.g-card-fav { font-size: 11px; color: var(--red); }
+.g-piracy {
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 4px; font-weight: 500;
+}
+.g-piracy.has { background: rgba(248,113,113,.12); color: var(--red); border: 1px solid rgba(248,113,113,.25); }
+.g-piracy.none { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+.g-status {
+  position: absolute; top: 10px; right: 10px;
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.g-status.pending { background: var(--amber); }
+.g-status.done { background: var(--green); }
+.g-status.none-s { background: var(--text3); }
+
+/* ── Modal ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+  z-index: 200; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: var(--radius); width: 100%; max-width: 560px;
+  max-height: 88vh; overflow-y: auto;
+}
+.modal-head {
+  padding: 16px 18px 14px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--bg2); z-index: 1;
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.modal-head-main { flex: 1; min-width: 0; }
+.modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.modal-author { font-size: 12px; color: var(--text2); }
+.modal-close {
+  background: none; border: none; color: var(--text3);
+  font-size: 20px; cursor: pointer; padding: 0 4px;
+  line-height: 1; flex-shrink: 0;
+}
+.modal-close:hover { color: var(--text); }
+.modal-meta {
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.modal-links { border-bottom: 1px solid var(--border); }
+.modal-footer { padding: 10px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
 /* ── PC layout ── */
 @media (min-width: 768px) {
   .header { padding: 16px 24px 14px; }
@@ -297,6 +407,9 @@ body {
   .search-wrap { flex: 1; margin-bottom: 0; }
   .filter-row { flex-wrap: wrap; overflow: visible; }
   .list-wrap { padding: 16px 24px 60px; max-width: 900px; margin: 0 auto; }
+  .list-wrap.grid-mode { padding: 0 0 60px !important; max-width: none; margin: 0; }
+  .grid-wrap { padding: 16px 24px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .ctrl-row { padding: 10px 24px; }
   .card-head { padding: 14px 18px; }
   .link-list { padding: 10px 18px; }
   .card-footer { padding: 10px 18px; }
@@ -365,7 +478,34 @@ body {
   </div>
 </div>
 
-<div class="list-wrap">
+<!-- 视图/排序控制 -->
+<div class="ctrl-row">
+  <span class="ctrl-label">视图</span>
+  <div class="ctrl-group">
+    <button class="ctrl-btn view-btn active" id="view-grid" onclick="setView('grid')">⊞ 网格</button>
+    <button class="ctrl-btn view-btn" id="view-list" onclick="setView('list')">☰ 列表</button>
+  </div>
+  <div class="ctrl-sep"></div>
+  <span class="ctrl-label">排序</span>
+  <div class="ctrl-group">
+    <button class="ctrl-btn sort-btn active" id="sort-random" onclick="setSort('random')">随机</button>
+    <button class="ctrl-btn sort-btn" id="sort-fav_desc" onclick="setSort('fav_desc')">收藏↓</button>
+    <button class="ctrl-btn sort-btn" id="sort-fav_asc" onclick="setSort('fav_asc')">收藏↑</button>
+    <button class="ctrl-btn sort-btn" id="sort-piracy" onclick="setSort('piracy')">盗版↓</button>
+  </div>
+</div>
+
+<!-- 书籍详情弹窗 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-head" id="modalHead"></div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-links" id="modalLinks"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<div class="list-wrap" id="listWrap">
   <div id="list"></div>
   <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
     <button class="load-more-btn" onclick="loadMore()">加载更多</button>
@@ -377,6 +517,8 @@ let allBooks = [];
 let filtered = [];
 let PAGE_SIZE = 30;
 let currentPage = 1;
+let viewMode = 'grid';    // 'grid' | 'list'
+let sortMode = 'random';  // 'random' | 'fav_desc' | 'fav_asc' | 'piracy'
 
 let activePanel = null;
 let selStatus = '';
@@ -441,6 +583,41 @@ function getBookTags(book) {
       .map(t => t.trim())
       .filter(Boolean)
   )];
+}
+
+// ── View & Sort ──
+function setView(mode) {
+  viewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + mode).classList.add('active');
+  renderList();
+}
+
+function setSort(mode) {
+  sortMode = mode;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + mode).classList.add('active');
+  applyFilter();
+}
+
+function shuffleArr(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function sortFiltered() {
+  if (sortMode === 'random') {
+    shuffleArr(filtered);
+  } else if (sortMode === 'fav_desc') {
+    filtered.sort((a, b) => parseFavNum(b['收藏数']) - parseFavNum(a['收藏数']));
+  } else if (sortMode === 'fav_asc') {
+    filtered.sort((a, b) => parseFavNum(a['收藏数']) - parseFavNum(b['收藏数']));
+  } else if (sortMode === 'piracy') {
+    filtered.sort((a, b) => (b['盗版链接']?.length || 0) - (a['盗版链接']?.length || 0));
+  }
 }
 
 function togglePanel(name) {
@@ -520,24 +697,36 @@ function applyFilter() {
     if (selPiracy === 'none' && b['盗版链接'] && b['盗版链接'].length > 0) return false;
     return true;
   });
+  sortFiltered();
   currentPage = 1;
   renderList();
 }
 
 function renderList() {
   const list = document.getElementById('list');
+  const wrap = document.getElementById('listWrap');
   const total = filtered.length;
   const piracyTotal = filtered.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
   document.getElementById('stats').textContent = `${total} 本 · ${piracyTotal} 本有盗版`;
 
   if (total === 0) {
+    list.className = '';
+    wrap.classList.remove('grid-mode');
     list.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>没有符合条件的书目</div>';
     document.getElementById('loadMoreWrap').style.display = 'none';
     return;
   }
 
   const pageData = filtered.slice(0, currentPage * PAGE_SIZE);
-  list.innerHTML = pageData.map((b, i) => renderCard(b, i)).join('');
+  if (viewMode === 'grid') {
+    wrap.classList.add('grid-mode');
+    list.className = 'grid-wrap';
+    list.innerHTML = pageData.map((b, i) => renderGridCard(b, i)).join('');
+  } else {
+    wrap.classList.remove('grid-mode');
+    list.className = '';
+    list.innerHTML = pageData.map((b, i) => renderCard(b, i)).join('');
+  }
 
   const hasMore = total > currentPage * PAGE_SIZE;
   document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
@@ -548,11 +737,94 @@ function loadMore() {
   const list = document.getElementById('list');
   const start = (currentPage - 1) * PAGE_SIZE;
   const pageData = filtered.slice(start, currentPage * PAGE_SIZE);
-  list.insertAdjacentHTML('beforeend', pageData.map((b, i) => renderCard(b, start + i)).join(''));
+  if (viewMode === 'grid') {
+    list.insertAdjacentHTML('beforeend', pageData.map((b, i) => renderGridCard(b, start + i)).join(''));
+  } else {
+    list.insertAdjacentHTML('beforeend', pageData.map((b, i) => renderCard(b, start + i)).join(''));
+  }
   const hasMore = filtered.length > currentPage * PAGE_SIZE;
   document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
 }
 
+// ── Grid Card ──
+function renderGridCard(b, idx) {
+  const links = b['盗版链接'] || [];
+  const status = b['投诉状态'] || '待投诉';
+  const dotClass = status === '已投诉' ? 'done' : status === '未发现盗版' ? 'none-s' : 'pending';
+  const tags = getBookTags(b).slice(0, 3);
+  const favNum = parseFavNum(b['收藏数']);
+  const favStr = favNum >= 10000 ? `${(favNum/10000).toFixed(1)}万` : (b['收藏数'] || '?');
+  return `
+  <div class="g-card" onclick="openModal(${idx})">
+    <div class="g-status ${dotClass}" title="${status}"></div>
+    <div class="g-card-title">${b['书名']}</div>
+    <div class="g-card-author">${b['作者']}</div>
+    <div class="g-card-tags">
+      ${b['类型'] ? `<span class="g-card-tag type">${b['类型']}</span>` : ''}
+      ${tags.map(t => `<span class="g-card-tag content">${t}</span>`).join('')}
+    </div>
+    <div class="g-card-bottom">
+      <span class="g-card-fav">♥ ${favStr}</span>
+      <span class="g-piracy ${links.length > 0 ? 'has' : 'none'}">
+        ${links.length > 0 ? `${links.length}条盗版` : '未发现'}
+      </span>
+    </div>
+  </div>`;
+}
+
+// ── Modal ──
+function openModal(idx) {
+  const b = filtered[idx];
+  if (!b) return;
+  const links = b['盗版链接'] || [];
+  const status = b['投诉状态'] || '待投诉';
+  const tags = getBookTags(b);
+  const favNum = parseFavNum(b['收藏数']);
+  const favStr = favNum >= 10000 ? `${(favNum/10000).toFixed(1)}万` : (b['收藏数'] || '?');
+
+  const linksHtml = links.length > 0
+    ? links.map((url, j) => `
+        <div class="link-item">
+          <span class="link-num">${j+1}</span>
+          <a class="link-url" href="${url}" target="_blank" rel="noopener">${url}</a>
+          <button class="btn-copy" onclick="copyUrl(this,'${url.replace(/'/g,"\\'")}')">复制</button>
+        </div>`).join('')
+    : '<div class="no-links">未发现盗版链接</div>';
+
+  document.getElementById('modalHead').innerHTML = `
+    <div class="modal-head-main">
+      <div class="modal-title">${b['书名']}</div>
+      <div class="modal-author">${b['作者']}</div>
+    </div>
+    <button class="modal-close" onclick="closeModal()">✕</button>`;
+
+  document.getElementById('modalMeta').innerHTML = `
+    ${b['类型'] ? `<span class="meta-tag" style="color:var(--blue);border-color:rgba(96,165,250,.3)">${b['类型']}</span>` : ''}
+    ${b['文章类型'] && b['文章类型'] !== '未获取' ? `<span class="meta-tag" style="color:var(--text2)">${b['文章类型']}</span>` : ''}
+    ${tags.map(t => `<span class="meta-tag" style="color:var(--accent);border-color:rgba(168,85,247,.25)">${t}</span>`).join('')}
+    <span class="fav-count">♥ ${favStr}</span>`;
+
+  document.getElementById('modalLinks').innerHTML = `<div class="link-list">${linksHtml}</div>`;
+
+  document.getElementById('modalFooter').innerHTML = `
+    <span class="footer-label">投诉状态</span>
+    <select class="status-select" onchange="updateStatus('${b['书名'].replace(/'/g,"\\'")}', this.value)">
+      <option ${status==='待投诉'?'selected':''}>待投诉</option>
+      <option ${status==='已投诉'?'selected':''}>已投诉</option>
+      <option ${status==='未发现盗版'?'selected':''}>未发现盗版</option>
+    </select>
+    <a href="${b['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>`;
+
+  document.getElementById('modalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── List Card (original) ──
 function renderCard(b, idx) {
   const links = b['盗版链接'] || [];
   const status = b['投诉状态'] || '待投诉';
@@ -636,6 +908,16 @@ document.addEventListener('click', e => {
     document.querySelectorAll('.filter-panel').forEach(p => p.classList.remove('open'));
     activePanel = null;
   }
+});
+
+// Modal: close on overlay backdrop click
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
+
+// Modal: close on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
 });
 
 init();
