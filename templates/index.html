@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>晋江版权维权系统</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f5f5f5; color: #333; }
+  .header { background: #fff; border-bottom: 1px solid #e0e0e0;
+            padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+  .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  .controls input { flex: 1; min-width: 200px; padding: 8px 12px;
+                    border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+  .controls select { padding: 8px 12px; border: 1px solid #ddd;
+                     border-radius: 8px; font-size: 14px; background: #fff; }
+  .stats { padding: 12px 20px; font-size: 13px; color: #888; }
+  .list { padding: 0 20px 20px; }
+  .card { background: #fff; border-radius: 12px; margin-bottom: 10px;
+          border: 1px solid #e8e8e8; overflow: hidden; }
+  .card-header { padding: 14px 16px; cursor: pointer; display: flex;
+                 align-items: center; gap: 12px; }
+  .card-header:hover { background: #fafafa; }
+  .book-title { font-size: 16px; font-weight: 600; flex: 1; }
+  .book-author { font-size: 13px; color: #888; }
+  .fav { font-size: 13px; color: #e74c3c; font-weight: 500; white-space: nowrap; }
+  .status-badge { font-size: 11px; padding: 3px 8px; border-radius: 20px;
+                  font-weight: 500; white-space: nowrap; }
+  .status-待投诉 { background: #fff3cd; color: #856404; }
+  .status-已投诉 { background: #d4edda; color: #155724; }
+  .status-未发现盗版 { background: #e2e3e5; color: #6c757d; }
+  .card-body { display: none; border-top: 1px solid #f0f0f0; padding: 12px 16px; }
+  .card-body.open { display: block; }
+  .links-title { font-size: 13px; color: #888; margin-bottom: 8px; }
+  .link-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .link-item a { font-size: 13px; color: #2563eb; text-decoration: none;
+                 flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .link-item a:hover { text-decoration: underline; }
+  .btn-copy { font-size: 11px; padding: 3px 8px; border: 1px solid #ddd;
+              border-radius: 6px; cursor: pointer; background: #fff; color: #666; }
+  .btn-copy:hover { background: #f0f0f0; }
+  .no-links { font-size: 13px; color: #aaa; font-style: italic; }
+  .card-footer { display: flex; align-items: center; gap: 10px;
+                 margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+  .card-footer label { font-size: 13px; color: #666; }
+  .card-footer select { font-size: 13px; padding: 4px 8px; border: 1px solid #ddd;
+                        border-radius: 6px; background: #fff; }
+  .jj-link { font-size: 12px; color: #aaa; text-decoration: none; }
+  .jj-link:hover { color: #666; }
+  .empty { text-align: center; padding: 60px 20px; color: #aaa; font-size: 15px; }
+  .arrow { font-size: 12px; color: #bbb; transition: transform .2s; }
+  .arrow.open { transform: rotate(90deg); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>晋江版权维权系统</h1>
+  <div class="controls">
+    <input type="text" id="search" placeholder="搜索书名或作者..." oninput="filterBooks()">
+    <select id="statusFilter" onchange="filterBooks()">
+      <option value="">全部状态</option>
+      <option value="待投诉">待投诉</option>
+      <option value="已投诉">已投诉</option>
+      <option value="未发现盗版">未发现盗版</option>
+    </select>
+  </div>
+</div>
+
+<div class="stats" id="stats">加载中...</div>
+<div class="list" id="list"></div>
+
+<script>
+let allBooks = [];
+
+async function loadBooks() {
+  const res = await fetch('/api/books');
+  allBooks = await res.json();
+  renderBooks(allBooks);
+}
+
+function filterBooks() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  let filtered = allBooks;
+  if (q) filtered = filtered.filter(b =>
+    b['书名'].toLowerCase().includes(q) || b['作者'].toLowerCase().includes(q));
+  if (status) filtered = filtered.filter(b => b['投诉状态'] === status);
+  renderBooks(filtered);
+}
+
+function renderBooks(books) {
+  const list = document.getElementById('list');
+  const stats = document.getElementById('stats');
+  const piracyCount = books.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
+  stats.textContent = `共 ${books.length} 本书，其中 ${piracyCount} 本发现盗版链接`;
+
+  if (books.length === 0) {
+    list.innerHTML = '<div class="empty">没有找到符合条件的书目</div>';
+    return;
+  }
+
+  list.innerHTML = books.map((book, i) => {
+    const links = book['盗版链接'] || [];
+    const status = book['投诉状态'] || '待投诉';
+    const firstLink = links[0] || null;
+    return `
+    <div class="card" id="card-${i}">
+      <div class="card-header" onclick="toggleCard(${i})">
+        <span class="arrow" id="arrow-${i}">▶</span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="book-title">${book['书名']}</span>
+            <span class="book-author">${book['作者']}</span>
+          </div>
+          <div style="font-size:12px;color:#aaa;margin-top:2px">${book['类型'] || ''}</div>
+        </div>
+        <span class="fav">♥ ${book['收藏数']}</span>
+        <span class="status-badge status-${status}">${status}</span>
+        ${firstLink ? `<a href="${firstLink}" target="_blank" onclick="event.stopPropagation()"
+          style="font-size:12px;padding:5px 10px;background:#e74c3c;color:#fff;
+          border-radius:6px;text-decoration:none;white-space:nowrap">直接打开</a>` : ''}
+      </div>
+      <div class="card-body" id="body-${i}">
+        <div class="links-title">盗版链接（${links.length} 条）</div>
+        ${links.length > 0 ? links.map((url, j) => `
+          <div class="link-item">
+            <span style="font-size:12px;color:#aaa;min-width:20px">${j+1}</span>
+            <a href="${url}" target="_blank">${url}</a>
+            <button class="btn-copy" onclick="copyLink('${url}')">复制</button>
+          </div>`).join('') : '<div class="no-links">未发现盗版链接</div>'}
+        <div class="card-footer">
+          <label>投诉状态：</label>
+          <select onchange="updateStatus('${book['书名']}', this.value)">
+            <option ${status==='待投诉'?'selected':''}>待投诉</option>
+            <option ${status==='已投诉'?'selected':''}>已投诉</option>
+            <option ${status==='未发现盗版'?'selected':''}>未发现盗版</option>
+          </select>
+          <a href="${book['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(i) {
+  const body = document.getElementById(`body-${i}`);
+  const arrow = document.getElementById(`arrow-${i}`);
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => alert('已复制'));
+}
+
+async function updateStatus(bookName, newStatus) {
+  await fetch('/api/update_status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({'书名': bookName, '投诉状态': newStatus})
+  });
+  const idx = allBooks.findIndex(b => b['书名'] === bookName);
+  if (idx !== -1) allBooks[idx]['投诉状态'] = newStatus;
+}
+
+loadBooks();
+</script>
+</body>
+</html>
