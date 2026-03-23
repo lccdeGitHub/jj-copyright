@@ -410,7 +410,7 @@ function buildFilterOptions() {
 
   // 标签
   const tagSet = new Set();
-  allBooks.forEach(b => (b['标签'] || []).forEach(t => tagSet.add(t)));
+  allBooks.forEach(b => getBookTags(b).forEach(t => tagSet.add(t)));
   document.getElementById('tagChips').innerHTML =
     [...tagSet].sort().map(t =>
       `<div class="tag-chip" data-val="${t}" onclick="toggleTag(this)">${t}</div>`
@@ -425,6 +425,22 @@ function buildFilterOptions() {
 function parseFavNum(str) {
   if (!str || str === '未获取') return 0;
   return parseInt(str.replace(/,/g,'')) || 0;
+}
+
+function getBookTags(book) {
+  if (Array.isArray(book['标签']) && book['标签'].length > 0) {
+    return [...new Set(book['标签'].map(t => String(t).trim()).filter(Boolean))];
+  }
+
+  const raw = book['内容标签'];
+  if (!raw || raw === '未获取') return [];
+
+  return [...new Set(
+    String(raw)
+      .split(/[、，,|\/\s]+/)
+      .map(t => t.trim())
+      .filter(Boolean)
+  )];
 }
 
 function togglePanel(name) {
@@ -496,7 +512,7 @@ function applyFilter() {
     if (selStatus && b['投诉状态'] !== selStatus) return false;
     if (selType && b['类型'] !== selType) return false;
     if (selTags.size > 0) {
-      const bTags = b['标签'] || [];
+      const bTags = getBookTags(b);
       if (![...selTags].every(t => bTags.includes(t))) return false;
     }
     if (favMin > 0 && parseFavNum(b['收藏数']) < favMin) return false;
@@ -541,7 +557,7 @@ function renderCard(b, idx) {
   const links = b['盗版链接'] || [];
   const status = b['投诉状态'] || '待投诉';
   const dotClass = status === '已投诉' ? 'done' : status === '未发现盗版' ? 'none' : 'pending';
-  const tags = (b['标签'] || []).slice(0, 4);
+  const tags = getBookTags(b).slice(0, 4);
   const favNum = parseFavNum(b['收藏数']);
   const favStr = favNum >= 10000 ? `${(favNum/10000).toFixed(1)}万` : b['收藏数'];
 
