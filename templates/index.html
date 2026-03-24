@@ -4,28 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>晋江版权维权系统</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f0f13;
-  --bg2: #17171d;
-  --bg3: #1e1e26;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.12);
-  --text: #e8e6f0;
-  --text2: #9993b0;
-  --text3: #5c5875;
-  --accent: #c084fc;
-  --accent2: #a855f7;
-  --red: #f87171;
-  --green: #4ade80;
-  --amber: #fbbf24;
-  --blue: #60a5fa;
+  --bg: #F8F9FA;
+  --bg2: #FFFFFF;
+  --bg3: #F3F4F6;
+  --border: #E5E7EB;
+  --border2: #D1D5DB;
+  --text: #1F2937;
+  --text2: #6B7280;
+  --text3: #9CA3AF;
+  --accent: #6366F1;
+  --accent2: #6366F1;
+  --red: #EF4444;
+  --green: #10B981;
+  --amber: #F59E0B;
+  --blue: #4F46E5;
   --radius: 12px;
   --radius-sm: 8px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 html { font-size: 15px; }
@@ -40,7 +43,7 @@ body {
 /* ── Header ── */
 .header {
   position: sticky; top: 0; z-index: 100;
-  background: rgba(15,15,19,0.92);
+  background: rgba(248,249,250,0.92);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
   padding: 14px 16px 12px;
@@ -51,15 +54,16 @@ body {
 }
 .header-title {
   font-size: 16px; font-weight: 700;
-  background: linear-gradient(135deg, #c084fc, #818cf8);
+  background: linear-gradient(135deg, #4F46E5, #6366F1);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   flex: 1;
 }
 .stats-pill {
   font-size: 11px; color: var(--text2);
-  background: var(--bg3); border: 1px solid var(--border);
+  background: var(--bg2); border: 1px solid var(--border);
   padding: 4px 10px; border-radius: 20px;
   white-space: nowrap;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Search ── */
@@ -148,9 +152,10 @@ body {
   border-radius: var(--radius);
   margin-bottom: 8px;
   overflow: hidden;
-  transition: border-color .2s;
+  transition: border-color .2s, box-shadow .2s, transform .15s;
+  box-shadow: var(--shadow-sm);
 }
-.card:hover { border-color: var(--border2); }
+.card:hover { border-color: var(--border2); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 
 .card-head {
   padding: 12px 14px;
@@ -277,6 +282,24 @@ body {
 
 /* ── Load more ── */
 .load-more-wrap { text-align: center; padding: 16px; }
+.loading-indicator {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text2); font-size: 13px; box-shadow: var(--shadow-sm);
+}
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #C7D2FE; border-top-color: var(--accent2);
+  animation: spin 0.9s linear infinite;
+}
+.load-complete {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text2); font-size: 13px; box-shadow: var(--shadow-sm);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .load-more-btn {
   padding: 10px 24px;
   background: var(--bg3); border: 1px solid var(--border);
@@ -324,10 +347,11 @@ body {
   cursor: pointer; transition: border-color .2s, transform .15s, box-shadow .2s;
   display: flex; flex-direction: column; gap: 7px;
   position: relative; min-height: 130px;
+  box-shadow: var(--shadow-sm);
 }
 .g-card:hover {
   border-color: var(--accent2); transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(168,85,247,.12);
+  box-shadow: var(--shadow-md);
 }
 .g-card-title {
   font-size: 14px; font-weight: 700; color: var(--text);
@@ -342,7 +366,7 @@ body {
   border-radius: 4px; border: 1px solid var(--border); color: var(--text3);
 }
 .g-card-tag.type { border-color: rgba(96,165,250,.3); color: var(--blue); }
-.g-card-tag.content { border-color: rgba(168,85,247,.25); color: var(--accent); }
+.g-card-tag.content { border-color: rgba(99,102,241,.22); color: var(--accent); }
 .g-card-bottom {
   display: flex; align-items: center;
   justify-content: space-between; margin-top: auto; padding-top: 6px;
@@ -366,7 +390,7 @@ body {
 /* ── Modal ── */
 .modal-overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+  background: rgba(31,41,55,.18); backdrop-filter: blur(8px);
   z-index: 200; align-items: center; justify-content: center; padding: 16px;
 }
 .modal-overlay.open { display: flex; }
@@ -374,6 +398,7 @@ body {
   background: var(--bg2); border: 1px solid var(--border2);
   border-radius: var(--radius); width: 100%; max-width: 560px;
   max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
 }
 .modal-head {
   padding: 16px 18px 14px; border-bottom: 1px solid var(--border);
@@ -457,6 +482,7 @@ body {
 }
 .author-table tr:last-child td { border-bottom: none; }
 .author-table tbody tr:hover td { background: rgba(255,255,255,.025); }
+.author-table tbody tr:hover td { background: #F9FAFB; }
 .at-name { font-weight: 600; }
 .at-name a { color: var(--text); text-decoration: none; }
 .at-name a:hover { color: var(--accent); }
@@ -464,6 +490,23 @@ body {
 .at-progress { color: var(--text2); white-space: nowrap; }
 .at-score { color: var(--amber); }
 .at-fav { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--red); }
+.value-with-diff {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.trend-cell {
+  min-width: 220px;
+}
+.trend-wrap {
+  display: flex; align-items: center; justify-content: flex-start;
+  min-height: 60px;
+}
+.trend-empty {
+  font-size: 12px; color: var(--text3);
+}
+.trend-canvas {
+  width: 200px !important;
+  height: 60px !important;
+}
 .fav-diff {
   font-size: 11px; padding: 2px 6px;
   border-radius: 4px; font-weight: 600; white-space: nowrap;
@@ -593,9 +636,7 @@ body {
 
 <div class="list-wrap" id="listWrap">
   <div id="list"></div>
-  <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
-    <button class="load-more-btn" onclick="loadMore()">加载更多</button>
-  </div>
+  <div class="load-more-wrap" id="loadMoreWrap" style="display:none"></div>
 </div>
 </div><!-- /page-books -->
 
@@ -610,6 +651,9 @@ let PAGE_SIZE = 30;
 let currentPage = 1;
 let viewMode = 'grid';    // 'grid' | 'list'
 let sortMode = 'random';  // 'random' | 'fav_desc' | 'fav_asc' | 'piracy'
+let isLoadingMore = false;
+let allLoaded = false;
+let authorCharts = [];
 
 let activePanel = null;
 let selStatus = '';
@@ -797,6 +841,7 @@ function applyFilter() {
 function renderList() {
   const list = document.getElementById('list');
   const wrap = document.getElementById('listWrap');
+  const loadWrap = document.getElementById('loadMoreWrap');
   const total = filtered.length;
   const piracyTotal = filtered.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
   document.getElementById('stats').textContent = `${total} 本 · ${piracyTotal} 本有盗版`;
@@ -805,7 +850,7 @@ function renderList() {
     list.className = '';
     wrap.classList.remove('grid-mode');
     list.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>没有符合条件的书目</div>';
-    document.getElementById('loadMoreWrap').style.display = 'none';
+    loadWrap.style.display = 'none';
     return;
   }
 
@@ -820,11 +865,15 @@ function renderList() {
     list.innerHTML = pageData.map((b, i) => renderCard(b, i)).join('');
   }
 
-  const hasMore = total > currentPage * PAGE_SIZE;
-  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
+  updateLoadState();
 }
 
 function loadMore() {
+  if (isLoadingMore || allLoaded) return;
+  isLoadingMore = true;
+  updateLoadState();
+
+  window.setTimeout(() => {
   currentPage++;
   const list = document.getElementById('list');
   const start = (currentPage - 1) * PAGE_SIZE;
@@ -834,8 +883,44 @@ function loadMore() {
   } else {
     list.insertAdjacentHTML('beforeend', pageData.map((b, i) => renderCard(b, start + i)).join(''));
   }
-  const hasMore = filtered.length > currentPage * PAGE_SIZE;
-  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
+  isLoadingMore = false;
+  updateLoadState();
+  }, 250);
+}
+
+function updateLoadState() {
+  const loadWrap = document.getElementById('loadMoreWrap');
+  const shown = Math.min(currentPage * PAGE_SIZE, filtered.length);
+  allLoaded = shown >= filtered.length;
+
+  if (!filtered.length) {
+    loadWrap.style.display = 'none';
+    loadWrap.innerHTML = '';
+    return;
+  }
+
+  loadWrap.style.display = 'block';
+  if (isLoadingMore) {
+    loadWrap.innerHTML = '<div class="loading-indicator"><span class="spinner"></span><span>正在加载更多...</span></div>';
+    return;
+  }
+
+  if (allLoaded) {
+    loadWrap.innerHTML = `<div class="load-complete">已显示全部 ${filtered.length} 本</div>`;
+    return;
+  }
+
+  loadWrap.innerHTML = `<div class="loading-indicator"><span class="spinner"></span><span>下滑自动加载更多（已显示 ${shown}/${filtered.length}）</span></div>`;
+}
+
+function onWindowScroll() {
+  if (document.getElementById('page-books').style.display === 'none') return;
+  if (isLoadingMore || allLoaded || !filtered.length) return;
+  const scrollBottom = window.innerHeight + window.scrollY;
+  const threshold = document.documentElement.scrollHeight - 200;
+  if (scrollBottom >= threshold) {
+    loadMore();
+  }
 }
 
 // ── Grid Card ──
@@ -977,7 +1062,8 @@ function toggleCard(idx) {
 }
 
 function copyUrl(btn, url) {
-  navigator.clipboard.writeText(url).then(() => {
+  const cleanUrl = String(url || '').trim().replace(/^\[+/, '').replace(/\]+$/, '');
+  navigator.clipboard.writeText(cleanUrl).then(() => {
     btn.textContent = '已复制';
     btn.classList.add('copied');
     setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
@@ -1051,6 +1137,62 @@ function diffBadge(cur, prevVal) {
   return '';
 }
 
+function destroyAuthorCharts() {
+  authorCharts.forEach(chart => chart.destroy());
+  authorCharts = [];
+}
+
+function buildTrendSeries(bookName) {
+  return authorHistory
+    .map(record => {
+      const works = Array.isArray(record['作品列表']) ? record['作品列表'] : [];
+      const match = works.find(item => item['书名'] === bookName);
+      return match ? numStr(match['收藏数']) : null;
+    })
+    .filter(value => value !== null);
+}
+
+function renderTrendCharts() {
+  destroyAuthorCharts();
+  document.querySelectorAll('[data-trend-book]').forEach(node => {
+    const bookName = node.dataset.trendBook;
+    const series = buildTrendSeries(bookName);
+    if (series.length <= 1) {
+      node.innerHTML = '<span class="trend-empty">暂无趋势数据</span>';
+      return;
+    }
+
+    node.innerHTML = `<canvas class="trend-canvas" width="200" height="60"></canvas>`;
+    const canvas = node.querySelector('canvas');
+    const chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: series.map((_, index) => index + 1),
+        datasets: [{
+          data: series,
+          borderColor: '#6366F1',
+          backgroundColor: 'rgba(99,102,241,0.08)',
+          borderWidth: 2,
+          tension: 0.35,
+          pointRadius: 0,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false, grid: { display: false } },
+          y: { display: false, grid: { display: false } },
+        },
+        elements: { line: { capBezierPoints: true } },
+      },
+    });
+    authorCharts.push(chart);
+  });
+}
+
 function renderAuthorPage() {
   const el = document.getElementById('authorContent');
   if (!authorHistory.length) {
@@ -1117,9 +1259,10 @@ function renderAuthorPage() {
     return `<tr>
       <td class="at-name">${nameCell}</td>
       <td><div class="at-fav">♥ ${fmtFav(fav)} ${favDiff}</div></td>
-      <td class="at-score">${score} ${scoreDiff}</td>
-      <td style="color:var(--text2)">${words} ${wordDiff}</td>
+      <td class="at-score"><span class="value-with-diff">${score} ${scoreDiff}</span></td>
+      <td style="color:var(--text2)"><span class="value-with-diff">${words} ${wordDiff}</span></td>
       <td class="at-progress">${progress}</td>
+      <td class="trend-cell"><div class="trend-wrap" data-trend-book="${name.replace(/"/g, '&quot;')}"></div></td>
     </tr>`;
   }).join('');
 
@@ -1133,11 +1276,16 @@ function renderAuthorPage() {
           <th>积分</th>
           <th>字数</th>
           <th>进度</th>
+          <th>趋势</th>
         </tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
       </table>
     </div>`;
+
+  renderTrendCharts();
 }
+
+window.addEventListener('scroll', onWindowScroll, { passive: true });
 
 init();
 </script>
