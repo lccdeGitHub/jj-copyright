@@ -698,7 +698,7 @@ function buildFilterOptions() {
     statuses.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'status')">${s}</div>`).join('');
 
   // 频道
-  const channels = ['全部', '耽美', '言情/无CP'];
+  const channels = ['全部', '耽美', '言情', '无CP'];
   document.getElementById('channelChips').innerHTML =
     channels.map((c, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${c}" onclick="toggleChip(this,'channel')">${c}</div>`).join('');
 
@@ -751,11 +751,13 @@ function getBookTags(book) {
   )];
 }
 
-function getBookChannel(book) {
-  const raw = String(book['频道'] || book['类型'] || '');
-  if (raw.includes('耽美')) return '耽美';
-  if (raw.includes('言情') || raw.includes('无CP') || raw.includes('无cp')) return '言情/无CP';
-  return '';
+function matchBookChannel(book, selectedChannel) {
+  if (!selectedChannel) return true;
+  const raw = String(book['频道'] || book['类型'] || '').toLowerCase();
+  const target = selectedChannel.toLowerCase();
+
+  if (target === '无cp') return raw.includes('无cp');
+  return raw.includes(target);
 }
 
 function getBookEra(book) {
@@ -904,7 +906,7 @@ function applyFilter() {
   filtered = allBooks.filter(b => {
     if (q && !b['书名'].toLowerCase().includes(q) && !b['作者'].toLowerCase().includes(q)) return false;
     if (selStatus && b['投诉状态'] !== selStatus) return false;
-    if (selChannel && getBookChannel(b) !== selChannel) return false;
+    if (selChannel && !matchBookChannel(b, selChannel)) return false;
     if (selType && b['类型'] !== selType) return false;
     if (selEra && getBookEra(b) !== selEra) return false;
     if (selTags.size > 0) {
