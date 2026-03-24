@@ -420,6 +420,88 @@ body {
 }
 .modal-links { border-bottom: 1px solid var(--border); }
 .modal-footer { padding: 10px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.notes-section {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  padding-top: 12px;
+}
+.notes-title {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.notes-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.notes-label {
+  font-size: 12px;
+  color: var(--text3);
+  min-width: 64px;
+}
+.star-rating {
+  display: inline-flex;
+  gap: 4px;
+}
+.star-btn {
+  border: none;
+  background: transparent;
+  color: #D1D5DB;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.star-btn.active { color: #F59E0B; }
+.notes-textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg3);
+  color: var(--text);
+}
+.notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent2);
+}
+.notes-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.btn-save-note {
+  padding: 6px 12px;
+  border: 1px solid var(--accent2);
+  border-radius: 8px;
+  background: var(--accent2);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .2s;
+}
+.btn-save-note:hover { opacity: .92; }
+.btn-save-note.saved {
+  background: var(--green);
+  border-color: var(--green);
+}
+.save-tip {
+  font-size: 12px;
+  color: var(--green);
+  min-height: 18px;
+}
 
 /* ── Tab bar ── */
 .tab-bar {
@@ -668,6 +750,8 @@ let sortMode = 'random';  // 'random' | 'fav_desc' | 'fav_asc' | 'piracy'
 let isLoadingMore = false;
 let allLoaded = false;
 let authorCharts = [];
+let currentModalBook = null;
+let currentModalRating = 0;
 
 let activePanel = null;
 let selStatus = '';
@@ -1038,6 +1122,8 @@ function renderGridCard(b, idx) {
 function openModal(idx) {
   const b = filtered[idx];
   if (!b) return;
+  currentModalBook = b;
+  currentModalRating = 0;
   const links = b['盗版链接'] || [];
   const status = b['投诉状态'] || '待投诉';
   const tags = getBookTags(b);
@@ -1075,7 +1161,31 @@ function openModal(idx) {
       <option ${status==='已投诉'?'selected':''}>已投诉</option>
       <option ${status==='未发现盗版'?'selected':''}>未发现盗版</option>
     </select>
-    <a href="${b['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>`;
+    <a href="${b['晋江链接']}" target="_blank" class="jj-link">晋江原文 →</a>
+
+    <div class="notes-section">
+      <div class="notes-title">读后感</div>
+      <div class="notes-row">
+        <span class="notes-label">阅读状态</span>
+        <select class="status-select" id="noteStatus">
+          <option>想读</option>
+          <option>在读</option>
+          <option>已读</option>
+        </select>
+      </div>
+      <div class="notes-row">
+        <span class="notes-label">评分</span>
+        <div class="star-rating" id="noteStars"></div>
+      </div>
+      <textarea id="noteText" class="notes-textarea" placeholder="写下你的读后感..."></textarea>
+      <div class="notes-actions">
+        <button class="btn-save-note" id="noteSaveBtn" onclick="saveCurrentNote()">保存笔记</button>
+        <span class="save-tip" id="noteSaveTip"></span>
+      </div>
+    </div>`;
+
+  renderRatingStars(0);
+  loadNoteForBook(b['书名']);
 
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1084,6 +1194,94 @@ function openModal(idx) {
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
+  currentModalBook = null;
+  currentModalRating = 0;
+}
+
+function renderRatingStars(rating) {
+  currentModalRating = rating;
+  const box = document.getElementById('noteStars');
+  if (!box) return;
+  box.innerHTML = [1,2,3,4,5].map(i =>
+    `<button class="star-btn ${i <= rating ? 'active' : ''}" onclick="setModalRating(${i})" type="button">★</button>`
+  ).join('');
+}
+
+function setModalRating(rating) {
+  renderRatingStars(rating);
+}
+
+async function loadNoteForBook(bookName) {
+  try {
+    const res = await fetch(`/api/notes/${encodeURIComponent(bookName)}`);
+    const payload = await res.json();
+    const data = payload && payload.data ? payload.data : null;
+
+    if (!data) {
+      renderRatingStars(0);
+      const statusEl = document.getElementById('noteStatus');
+      const noteEl = document.getElementById('noteText');
+      if (statusEl) statusEl.value = '想读';
+      if (noteEl) noteEl.value = '';
+      return;
+    }
+
+    const statusEl = document.getElementById('noteStatus');
+    const noteEl = document.getElementById('noteText');
+    if (statusEl && ['想读','在读','已读'].includes(data.status)) statusEl.value = data.status;
+    if (noteEl) noteEl.value = data.note || '';
+    renderRatingStars(Number(data.rating) || 0);
+  } catch (e) {
+    console.error('加载读后感失败', e);
+  }
+}
+
+async function saveCurrentNote() {
+  if (!currentModalBook) return;
+
+  const statusEl = document.getElementById('noteStatus');
+  const noteEl = document.getElementById('noteText');
+  const btnEl = document.getElementById('noteSaveBtn');
+
+  const payload = {
+    book_name: currentModalBook['书名'],
+    author: currentModalBook['作者'],
+    rating: currentModalRating,
+    status: statusEl ? statusEl.value : '想读',
+    note: noteEl ? noteEl.value : '',
+  };
+
+  try {
+    const res = await fetch('/api/notes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error('save failed');
+    
+    // 更改按钮状态
+    if (btnEl) {
+      const originalText = btnEl.textContent;
+      btnEl.textContent = '已保存✓';
+      btnEl.classList.add('saved');
+      btnEl.disabled = true;
+      
+      setTimeout(() => {
+        btnEl.textContent = originalText;
+        btnEl.classList.remove('saved');
+        btnEl.disabled = false;
+      }, 2000);
+    }
+  } catch (e) {
+    console.error('保存读后感失败', e);
+    if (btnEl) {
+      btnEl.textContent = '保存失败';
+      setTimeout(() => {
+        btnEl.textContent = '保存笔记';
+      }, 1500);
+    }
+  }
 }
 
 // ── List Card (original) ──
