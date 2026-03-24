@@ -27,6 +27,14 @@ def api_books():
         data = [b for b in data if b.get("投诉状态") == status]
     return jsonify(data)
 
+@app.route("/api/author_data")
+def api_author_data():
+    path = os.path.join(os.path.dirname(__file__), "author_data.json")
+    if not os.path.exists(path):
+        return jsonify([])
+    with open(path, "r", encoding="utf-8") as f:
+        return jsonify(json.load(f))
+
 @app.route("/api/update_status", methods=["POST"])
 def update_status():
     body = request.json

@@ -396,6 +396,87 @@ body {
 .modal-links { border-bottom: 1px solid var(--border); }
 .modal-footer { padding: 10px 18px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+/* ── Tab bar ── */
+.tab-bar {
+  display: flex; gap: 0;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+}
+.tab-btn {
+  padding: 8px 16px;
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2); font-size: 13px; font-family: inherit;
+  cursor: pointer; transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent2);
+}
+
+/* ── Author summary ── */
+.author-summary {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+.summary-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 20px;
+  display: flex; flex-direction: column; gap: 5px;
+  min-width: 140px;
+}
+.summary-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; }
+.summary-value { font-size: 20px; font-weight: 700; color: var(--text); }
+.summary-value.sm { font-size: 14px; }
+.summary-value.ac { color: var(--accent); }
+
+/* ── Author works table ── */
+.author-table-wrap {
+  overflow-x: auto;
+  padding: 16px;
+}
+.author-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+.author-table th {
+  text-align: left; padding: 8px 12px;
+  color: var(--text3); font-size: 11px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .07em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.author-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.author-table tr:last-child td { border-bottom: none; }
+.author-table tbody tr:hover td { background: rgba(255,255,255,.025); }
+.at-name { font-weight: 600; }
+.at-name a { color: var(--text); text-decoration: none; }
+.at-name a:hover { color: var(--accent); }
+.at-type { color: var(--blue); white-space: nowrap; }
+.at-progress { color: var(--text2); white-space: nowrap; }
+.at-score { color: var(--amber); }
+.at-fav { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--red); }
+.fav-diff {
+  font-size: 11px; padding: 2px 6px;
+  border-radius: 4px; font-weight: 600; white-space: nowrap;
+}
+.fav-diff.up   { background: rgba(74,222,128,.12); color: var(--green); border: 1px solid rgba(74,222,128,.3); }
+.fav-diff.down { background: rgba(248,113,113,.12); color: var(--red);   border: 1px solid rgba(248,113,113,.3); }
+.fav-diff.same { color: var(--text3); font-weight: 400; }
+.author-empty {
+  padding: 60px 24px; text-align: center;
+  color: var(--text3); font-size: 14px;
+}
+.author-empty-icon { font-size: 36px; margin-bottom: 12px; }
+
 /* ── PC layout ── */
 @media (min-width: 768px) {
   .header { padding: 16px 24px 14px; }
@@ -438,8 +519,13 @@ body {
       <button class="filter-btn" onclick="clearAll()" style="color:var(--text3)">清除</button>
     </div>
   </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-books" onclick="switchTab('books')">📋 维权记录</button>
+    <button class="tab-btn" id="tab-author" onclick="switchTab('author')">📊 作者数据</button>
+  </div>
 </div>
 
+<div id="page-books">
 <!-- 筛选面板 -->
 <div class="filter-panel" id="panel-status">
   <div class="filter-section">
@@ -511,6 +597,11 @@ body {
     <button class="load-more-btn" onclick="loadMore()">加载更多</button>
   </div>
 </div>
+</div><!-- /page-books -->
+
+<div id="page-author" style="display:none">
+  <div id="authorContent"><div class="author-empty"><div class="author-empty-icon">⏳</div>加载中...</div></div>
+</div>
 
 <script>
 let allBooks = [];
@@ -537,6 +628,7 @@ async function init() {
     document.getElementById('list').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
   }
+  initAuthor();
 }
 
 function buildFilterOptions() {
@@ -919,6 +1011,128 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
+
+// ── Tab switching ──
+function switchTab(tab) {
+  document.getElementById('page-books').style.display = tab === 'books' ? '' : 'none';
+  document.getElementById('page-author').style.display = tab === 'author'  ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── Author data ──
+let authorHistory = [];
+
+async function initAuthor() {
+  try {
+    const res = await fetch('/api/author_data');
+    authorHistory = await res.json();
+    // sort descending by 抓取时间 so index 0 = latest
+    authorHistory.sort((a, b) => String(b['抓取时间'] || '').localeCompare(String(a['抓取时间'] || '')));
+    renderAuthorPage();
+  } catch(e) {
+    document.getElementById('authorContent').innerHTML =
+      '<div class="author-empty"><div class="author-empty-icon">⚠️</div>author_data.json 加载失败</div>';
+  }
+}
+
+function numStr(val) {
+  const n = parseInt(String(val || '0').replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+function fmtNum(n) { return n.toLocaleString('zh-CN'); }
+function fmtFav(n) { return n >= 10000 ? (n / 10000).toFixed(1) + '万' : fmtNum(n); }
+
+function renderAuthorPage() {
+  const el = document.getElementById('authorContent');
+  if (!authorHistory.length) {
+    el.innerHTML = '<div class="author-empty"><div class="author-empty-icon">📭</div>暂无数据，请先运行爬虫生成 author_data.json</div>';
+    return;
+  }
+
+  const latest = authorHistory[0];
+  const prev   = authorHistory[1] || null;
+
+  // build previous books map for diff
+  const prevMap = {};
+  if (prev && Array.isArray(prev['作品列表'])) {
+    prev['作品列表'].forEach(b => { prevMap[b['书名']] = b; });
+  }
+
+  const works     = latest['作品列表'] || [];
+  const authorFav = numStr(latest['作者被收藏']);
+
+  // ── Summary cards ──
+  const summaryHtml = `
+    <div class="summary-card">
+      <div class="summary-label">最新抓取时间</div>
+      <div class="summary-value sm">${latest['抓取时间'] || '未知'}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">作者被收藏</div>
+      <div class="summary-value ac">♥ ${fmtFav(authorFav)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">作品数量</div>
+      <div class="summary-value">${works.length}</div>
+    </div>
+    ${authorHistory.length > 1 ? `
+    <div class="summary-card">
+      <div class="summary-label">历史记录</div>
+      <div class="summary-value sm" style="color:var(--text2)">${authorHistory.length} 条</div>
+    </div>` : ''}`;
+
+  // ── Table rows ──
+  const rowsHtml = works.map(book => {
+    const name     = book['书名']  || '';
+    const type     = book['类型']  || '';
+    const progress = book['进度']  || '';
+    const words    = book['字数']  || '';
+    const score    = book['积分']  || '';
+    const fav      = numStr(book['收藏数']);
+    const comments = book['评论数'] || '';
+    const link     = book['链接']  || '';
+
+    let diffHtml = '';
+    if (prev && prevMap[name]) {
+      const diff = fav - numStr(prevMap[name]['收藏数']);
+      if      (diff > 0) diffHtml = `<span class="fav-diff up">↑${fmtNum(diff)}</span>`;
+      else if (diff < 0) diffHtml = `<span class="fav-diff down">↓${fmtNum(-diff)}</span>`;
+      else               diffHtml = `<span class="fav-diff same">−</span>`;
+    }
+
+    const nameCell = link
+      ? `<a href="${link}" target="_blank" rel="noopener">${name}</a>`
+      : name;
+
+    return `<tr>
+      <td class="at-name">${nameCell}</td>
+      <td class="at-type">${type}</td>
+      <td class="at-progress">${progress}</td>
+      <td style="color:var(--text2)">${words}</td>
+      <td class="at-score">${score}</td>
+      <td><div class="at-fav">♥ ${fmtFav(fav)} ${diffHtml}</div></td>
+      <td style="color:var(--text2)">${comments}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="author-summary">${summaryHtml}</div>
+    <div class="author-table-wrap">
+      <table class="author-table">
+        <thead><tr>
+          <th>书名</th>
+          <th>类型</th>
+          <th>进度</th>
+          <th>字数</th>
+          <th>积分</th>
+          <th>收藏数</th>
+          <th>评论数</th>
+        </tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
 
 init();
 </script>
