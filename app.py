@@ -1,9 +1,33 @@
 from flask import Flask, render_template, jsonify, request
 import json
 import os
+import requests as req
 
 app = Flask(__name__)
 
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_GzL8hTs1moo6-NP5ErzERA_yuV37UYv")
+
+def supabase_get(table, filters=None):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    }
+    params = filters or {}
+    r = req.get(url, headers=headers, params=params)
+    return r.json()
+
+def supabase_upsert(table, data):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates",
+    }
+    r = req.post(url, headers=headers, json=data)
+    return r.status_code
 
 def _read_json_file(path, default):
     if not os.path.exists(path):
@@ -22,18 +46,6 @@ def load_data():
     data = _read_json_file(path, [])
     return data if isinstance(data, list) else []
 
-
-def load_notes():
-    path = os.path.join(os.path.dirname(__file__), "notes.json")
-    data = _read_json_file(path, [])
-    return data if isinstance(data, list) else []
-
-
-def save_notes(notes):
-    path = os.path.join(os.path.dirname(__file__), "notes.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(notes, f, ensure_ascii=False, indent=2)
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -41,7 +53,6 @@ def index():
 @app.route("/api/books")
 def api_books():
     data = load_data()
-    # 支持搜索
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
     if q:
@@ -71,22 +82,13 @@ def update_status():
         json.dump(data, f, ensure_ascii=False, indent=2)
     return jsonify({"ok": True})
 
-
-from supabase import create_client
-
-SUPABASE_URL = "https://kmcgydyfnnelblhtyexv.supabase.co"
-SUPABASE_KEY = "sb_publishable_GzL8hTs1moo6-NP5ErzERA_yuV37UYv"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 @app.route("/api/notes", methods=["POST"])
 def save_note():
     body = request.json or {}
     book_name = str(body.get("book_name", "")).strip()
     if not book_name:
-        return jsonify({"ok": False, "error": "book_name is required"}), 400
+        return jsonify({"ok": False}), 400
 
-    existing = supabase.table('notes').select('*').eq('book_name', book_name).execute()
-    
     data = {
         "book_name": book_name,
         "author": str(body.get("author", "")),
@@ -94,19 +96,14 @@ def save_note():
         "status": body.get("status", "想读"),
         "note": str(body.get("note", "")),
     }
-    
-    if existing.data:
-        supabase.table('notes').update(data).eq('book_name', book_name).execute()
-    else:
-        supabase.table('notes').insert(data).execute()
-    
+    supabase_upsert("notes", data)
     return jsonify({"ok": True})
 
 @app.route("/api/notes/<book_name>", methods=["GET"])
 def get_note(book_name):
-    result = supabase.table('notes').select('*').eq('book_name', book_name).execute()
-    if result.data:
-        return jsonify({"ok": True, "data": result.data[0]})
+    result = supabase_get("notes", {"book_name": f"eq.{book_name}"})
+    if result and isinstance(result, list):
+        return jsonify({"ok": True, "data": result[0]})
     return jsonify({"ok": True, "data": None})
 
 if __name__ == "__main__":
