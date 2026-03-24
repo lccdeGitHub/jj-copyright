@@ -555,7 +555,9 @@ body {
     </div>
     <div class="filter-row" id="filterRow">
       <button class="filter-btn" id="btnStatus" onclick="togglePanel('status')">状态 ▾</button>
+      <button class="filter-btn" id="btnChannel" onclick="togglePanel('channel')">频道 ▾</button>
       <button class="filter-btn" id="btnType" onclick="togglePanel('type')">类型 ▾</button>
+      <button class="filter-btn" id="btnEra" onclick="togglePanel('era')">年代 ▾</button>
       <button class="filter-btn" id="btnTag" onclick="togglePanel('tag')">标签 ▾</button>
       <button class="filter-btn" id="btnFav" onclick="togglePanel('fav')">收藏数 ▾</button>
       <button class="filter-btn" id="btnPiracy" onclick="togglePanel('piracy')">盗版 ▾</button>
@@ -576,10 +578,22 @@ body {
     <div class="tag-grid" id="statusChips"></div>
   </div>
 </div>
+<div class="filter-panel" id="panel-channel">
+  <div class="filter-section">
+    <div class="filter-label">频道</div>
+    <div class="tag-grid" id="channelChips"></div>
+  </div>
+</div>
 <div class="filter-panel" id="panel-type">
   <div class="filter-section">
     <div class="filter-label">作品类型</div>
     <div class="tag-grid" id="typeChips"></div>
+  </div>
+</div>
+<div class="filter-panel" id="panel-era">
+  <div class="filter-section">
+    <div class="filter-label">年代</div>
+    <div class="tag-grid" id="eraChips"></div>
   </div>
 </div>
 <div class="filter-panel" id="panel-tag">
@@ -592,8 +606,8 @@ body {
   <div class="filter-section">
     <div class="filter-label">最低收藏数</div>
     <div class="range-row">
-      <input type="range" id="favRange" min="0" max="300" value="0" step="5" oninput="onFavRange()">
-      <span class="range-val" id="favRangeVal">不限</span>
+      <input type="range" id="favRange" min="5" max="100" value="5" step="5" oninput="onFavRange()">
+      <span class="range-val" id="favRangeVal">5万+</span>
     </div>
   </div>
 </div>
@@ -657,10 +671,12 @@ let authorCharts = [];
 
 let activePanel = null;
 let selStatus = '';
+let selChannel = '';
 let selType = '';
+let selEra = '';
 let selTags = new Set();
 let selPiracy = '';
-let favMin = 0;
+let favMin = 50000;
 
 async function init() {
   try {
@@ -681,10 +697,22 @@ function buildFilterOptions() {
   document.getElementById('statusChips').innerHTML =
     statuses.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'status')">${s}</div>`).join('');
 
+  // 频道
+  const channels = ['全部', '耽美', '言情/无CP'];
+  document.getElementById('channelChips').innerHTML =
+    channels.map((c, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${c}" onclick="toggleChip(this,'channel')">${c}</div>`).join('');
+
   // 类型
   const types = [...new Set(allBooks.map(b => b['类型']).filter(Boolean))].sort();
   document.getElementById('typeChips').innerHTML =
     types.map(t => `<div class="tag-chip" data-val="${t}" onclick="toggleChip(this,'type')">${t}</div>`).join('');
+
+  // 年代（从类型中抽取第3段，如 近代现代 / 架空历史）
+  const eras = [...new Set(allBooks.map(b => getBookEra(b)).filter(Boolean))].sort();
+  const eraOptions = ['全部', ...eras];
+  document.getElementById('eraChips').innerHTML =
+    eraOptions.map((e, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${e}" onclick="toggleChip(this,'era')">${e}</div>`).join('')
+    || '<span style="color:var(--text3);font-size:12px">暂无年代数据</span>';
 
   // 标签
   const tagSet = new Set();
@@ -694,10 +722,12 @@ function buildFilterOptions() {
       `<div class="tag-chip" data-val="${t}" onclick="toggleTag(this)">${t}</div>`
     ).join('') || '<span style="color:var(--text3);font-size:12px">暂无标签数据</span>';
 
-  // 收藏数最大值
-  const maxFav = Math.max(...allBooks.map(b => parseFavNum(b['收藏数'])));
+  // 收藏范围固定在 5w~100w
   const slider = document.getElementById('favRange');
-  slider.max = Math.ceil(maxFav / 10000) * 10;
+  slider.min = 5;
+  slider.max = 100;
+  slider.value = 5;
+  document.getElementById('favRangeVal').textContent = '5万+';
 }
 
 function parseFavNum(str) {
@@ -719,6 +749,27 @@ function getBookTags(book) {
       .map(t => t.trim())
       .filter(Boolean)
   )];
+}
+
+function getBookChannel(book) {
+  const raw = String(book['频道'] || book['类型'] || '');
+  if (raw.includes('耽美')) return '耽美';
+  if (raw.includes('言情') || raw.includes('无CP') || raw.includes('无cp')) return '言情/无CP';
+  return '';
+}
+
+function getBookEra(book) {
+  const raw = String(book['类型'] || '').trim();
+  if (!raw) return '';
+
+  const parts = raw.split('-').map(s => s.trim()).filter(Boolean);
+  if (parts.length >= 3) return parts[2];
+
+  const eraCandidates = ['近代现代', '架空历史', '古色古香', '幻想未来', '现代', '历史'];
+  for (const era of eraCandidates) {
+    if (raw.includes(era)) return era;
+  }
+  return '';
 }
 
 // ── View & Sort ──
@@ -773,10 +824,24 @@ function toggleChip(el, type) {
     selStatus = selStatus === val ? '' : val;
     if (selStatus) el.classList.add('active');
     document.getElementById('btnStatus').classList.toggle('has-value', !!selStatus);
-  } else {
+  } else if (type === 'type') {
     selType = selType === val ? '' : val;
     if (selType) el.classList.add('active');
     document.getElementById('btnType').classList.toggle('has-value', !!selType);
+  } else if (type === 'channel') {
+    selChannel = val === '全部' ? '' : val;
+    const activeVal = selChannel || '全部';
+    container.querySelectorAll('.tag-chip').forEach(c => {
+      if (c.dataset.val === activeVal) c.classList.add('active');
+    });
+    document.getElementById('btnChannel').classList.toggle('has-value', !!selChannel);
+  } else if (type === 'era') {
+    selEra = val === '全部' ? '' : val;
+    const activeVal = selEra || '全部';
+    container.querySelectorAll('.tag-chip').forEach(c => {
+      if (c.dataset.val === activeVal) c.classList.add('active');
+    });
+    document.getElementById('btnEra').classList.toggle('has-value', !!selEra);
   }
   applyFilter();
 }
@@ -801,18 +866,34 @@ function togglePiracy(el) {
 function onFavRange() {
   const v = parseInt(document.getElementById('favRange').value);
   favMin = v * 10000;
-  document.getElementById('favRangeVal').textContent = v === 0 ? '不限' : `${v}万+`;
-  document.getElementById('btnFav').classList.toggle('has-value', v > 0);
+  document.getElementById('favRangeVal').textContent = `${v}万+`;
+  document.getElementById('btnFav').classList.toggle('has-value', v > 5);
   applyFilter();
 }
 
 function clearAll() {
-  selStatus = ''; selType = ''; selTags.clear(); selPiracy = ''; favMin = 0;
+  selStatus = ''; selChannel = ''; selType = ''; selEra = ''; selTags.clear(); selPiracy = ''; favMin = 50000;
   document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('has-value'));
-  document.getElementById('favRange').value = 0;
-  document.getElementById('favRangeVal').textContent = '不限';
+  document.getElementById('favRange').value = 5;
+  document.getElementById('favRangeVal').textContent = '5万+';
+  document.querySelectorAll('#channelChips .tag-chip').forEach(c => {
+    if (c.dataset.val === '全部') c.classList.add('active');
+  });
+  document.querySelectorAll('#eraChips .tag-chip').forEach(c => {
+    if (c.dataset.val === '全部') c.classList.add('active');
+  });
   document.getElementById('search').value = '';
+  applyFilter();
+}
+
+function quickFilterTag(tag) {
+  if (!tag) return;
+  selTags = new Set([tag]);
+  document.querySelectorAll('#tagChips .tag-chip').forEach(c => c.classList.remove('active'));
+  const target = document.querySelector(`#tagChips .tag-chip[data-val="${CSS.escape(tag)}"]`);
+  if (target) target.classList.add('active');
+  document.getElementById('btnTag').classList.add('has-value');
   applyFilter();
 }
 
@@ -823,7 +904,9 @@ function applyFilter() {
   filtered = allBooks.filter(b => {
     if (q && !b['书名'].toLowerCase().includes(q) && !b['作者'].toLowerCase().includes(q)) return false;
     if (selStatus && b['投诉状态'] !== selStatus) return false;
+    if (selChannel && getBookChannel(b) !== selChannel) return false;
     if (selType && b['类型'] !== selType) return false;
+    if (selEra && getBookEra(b) !== selEra) return false;
     if (selTags.size > 0) {
       const bTags = getBookTags(b);
       if (![...selTags].every(t => bTags.includes(t))) return false;
@@ -938,7 +1021,7 @@ function renderGridCard(b, idx) {
     <div class="g-card-author">${b['作者']}</div>
     <div class="g-card-tags">
       ${b['类型'] ? `<span class="g-card-tag type">${b['类型']}</span>` : ''}
-      ${tags.map(t => `<span class="g-card-tag content">${t}</span>`).join('')}
+      ${tags.map(t => `<span class="g-card-tag content" onclick="event.stopPropagation(); quickFilterTag('${String(t).replace(/'/g, "\\'")}')">${t}</span>`).join('')}
     </div>
     <div class="g-card-bottom">
       <span class="g-card-fav">♥ ${favStr}</span>
@@ -1029,7 +1112,7 @@ function renderCard(b, idx) {
         </div>
         <div class="card-meta">
           ${b['类型'] ? `<span class="meta-tag">${b['类型']}</span>` : ''}
-          ${tags.map(t => `<span class="meta-tag" style="color:var(--accent);border-color:rgba(168,85,247,.25)">${t}</span>`).join('')}
+          ${tags.map(t => `<span class="meta-tag" style="color:var(--accent);border-color:rgba(168,85,247,.25);cursor:pointer" onclick="event.stopPropagation(); quickFilterTag('${String(t).replace(/'/g, "\\'")}')">${t}</span>`).join('')}
           <span class="fav-count">♥ ${favStr}</span>
         </div>
       </div>
