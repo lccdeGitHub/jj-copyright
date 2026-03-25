@@ -932,24 +932,13 @@ let favRangeMaxWan = 50;
 
 async function init() {
   try {
-    const [booksRes, notesRes, mediaRes] = await Promise.all([
+    const [booksRes, mediaRes] = await Promise.all([
       fetch('/api/books'),
-      fetch('/api/notes'),
       fetch('/api/media'),
     ]);
 
     allBooks = await booksRes.json();
-    const allNotes = await notesRes.json();
     allMedia = await mediaRes.json();
-
-    notesByBook = {};
-    if (Array.isArray(allNotes)) {
-      allNotes.forEach(item => {
-        const name = String(item.book_name || '').trim();
-        if (!name) return;
-        notesByBook[name] = item;
-      });
-    }
 
     buildFilterOptions();
     buildMediaCategories();
