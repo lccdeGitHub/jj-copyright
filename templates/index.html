@@ -915,6 +915,7 @@ let notesByBook = {};
 let allMedia = [];
 let mediaFiltered = [];
 let mediaCategory = '';
+let mediaSortMode = '';
 let currentMediaItem = null;
 
 let activePanel = null;
@@ -1685,17 +1686,36 @@ function normalizeMediaCategory(raw) {
 
 function buildMediaCategories() {
   const categories = ['全部', '电影', '图书', '电视剧', '动画电影'];
+  const sorts = [
+    { label: '默认顺序', value: '' },
+    { label: '评分高到低', value: 'rating_desc' },
+    { label: '评分低到高', value: 'rating_asc' },
+  ];
   const row = document.getElementById('mediaCategoryRow');
-  row.innerHTML = categories.map((item, idx) =>
+  const categoryHtml = categories.map((item, idx) =>
     `<button class="filter-btn ${idx === 0 ? 'active' : ''}" data-media-category="${item}" onclick="setMediaCategory('${item}')">${item}</button>`
   ).join('');
+
+  const sortHtml = sorts.map(item =>
+    `<button class="filter-btn ${item.value === '' ? 'active' : ''}" data-media-sort="${item.value}" onclick="setMediaSort('${item.value}')">${item.label}</button>`
+  ).join('');
+
+  row.innerHTML = `${categoryHtml}<span class="ctrl-label" style="align-self:center;margin:0 2px 0 6px;">排序</span>${sortHtml}`;
 }
 
 function setMediaCategory(category) {
   mediaCategory = category === '全部' ? '' : category;
-  document.querySelectorAll('#mediaCategoryRow .filter-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('#mediaCategoryRow [data-media-category]').forEach(btn => btn.classList.remove('active'));
   const current = mediaCategory || '全部';
   const target = document.querySelector(`#mediaCategoryRow .filter-btn[data-media-category="${current}"]`);
+  if (target) target.classList.add('active');
+  renderMedia();
+}
+
+function setMediaSort(mode) {
+  mediaSortMode = mode || '';
+  document.querySelectorAll('#mediaCategoryRow [data-media-sort]').forEach(btn => btn.classList.remove('active'));
+  const target = document.querySelector(`#mediaCategoryRow .filter-btn[data-media-sort="${mediaSortMode}"]`);
   if (target) target.classList.add('active');
   renderMedia();
 }
@@ -1721,6 +1741,11 @@ function mediaRating(item) {
   return Number.isFinite(value) && value > 0 ? value.toFixed(1) : '暂无';
 }
 
+function mediaRatingValue(item) {
+  const value = Number(item.rating || item['评分']);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function escHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -1740,6 +1765,17 @@ function renderMedia() {
     const desc = mediaDesc(item).toLowerCase();
     return title.includes(q) || desc.includes(q);
   });
+
+  if (mediaSortMode) {
+    mediaFiltered.sort((a, b) => {
+      const aVal = mediaRatingValue(a);
+      const bVal = mediaRatingValue(b);
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
+      return mediaSortMode === 'rating_desc' ? bVal - aVal : aVal - bVal;
+    });
+  }
 
   const grid = document.getElementById('mediaGrid');
   if (!mediaFiltered.length) {
