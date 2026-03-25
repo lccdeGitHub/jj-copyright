@@ -530,8 +530,21 @@ body {
 .media-cover {
   width: 100%;
   aspect-ratio: 3 / 4;
-  object-fit: cover;
-  background: var(--bg3);
+  background: linear-gradient(135deg, #6366F1, #4F46E5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.media-cover-title {
+  color: #FFFFFF;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 700;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 .media-body {
   padding: 10px 12px;
@@ -1732,6 +1745,24 @@ function mediaCover(item) {
   return item.cover || item.poster || item.image || item['封面'] || '';
 }
 
+function hashText(value) {
+  const str = String(value || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function mediaCoverStyleByTitle(title) {
+  const seed = hashText(title);
+  const h1 = seed % 360;
+  const h2 = (h1 + 38 + (seed % 64)) % 360;
+  const c1 = `hsl(${h1}, 72%, 56%)`;
+  const c2 = `hsl(${h2}, 78%, 44%)`;
+  return `background: linear-gradient(135deg, ${c1}, ${c2});`;
+}
+
 function mediaSource(item) {
   return item.source || item['来源'] || '豆瓣';
 }
@@ -1786,7 +1817,6 @@ function renderMedia() {
 
   grid.innerHTML = mediaFiltered.map((item, idx) => {
     const title = mediaTitle(item);
-    const cover = mediaCover(item);
     const source = mediaSource(item);
     const desc = mediaDesc(item);
     const rating = mediaRating(item);
@@ -1797,7 +1827,9 @@ function renderMedia() {
 
     return `
       <div class="media-card">
-        ${cover ? `<img class="media-cover" src="${cover}" alt="${safeTitle}" loading="lazy">` : '<div class="media-cover"></div>'}
+        <div class="media-cover" style="${mediaCoverStyleByTitle(title)}">
+          <div class="media-cover-title">${safeTitle}</div>
+        </div>
         <div class="media-body">
           <div class="media-title">${safeTitle}</div>
           <div class="media-meta">
