@@ -106,6 +106,36 @@ def get_note(book_name):
         return jsonify({"ok": True, "data": result[0]})
     return jsonify({"ok": True, "data": None})
 
+@app.route("/api/media")
+def api_media():
+    category = request.args.get("category", "")
+    params = {}
+    if category:
+        params["category"] = f"eq.{category}"
+    result = supabase_get("media", params)
+    return jsonify(result if isinstance(result, list) else [])
+
+@app.route("/api/media/note", methods=["POST"])
+def save_media_note():
+    body = request.json or {}
+    title = str(body.get("title", "")).strip()
+    if not title:
+        return jsonify({"ok": False}), 400
+    data = {
+        "note": str(body.get("note", "")),
+        "watched": body.get("watched", False),
+        "tags": str(body.get("tags", "")),
+    }
+    url = f"{SUPABASE_URL}/rest/v1/media"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    import requests as req
+    req.patch(url, headers=headers_api, json=data, params={"title": f"eq.{title}"})
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
