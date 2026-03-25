@@ -66,6 +66,33 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.read-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.read-stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.read-stat-label {
+  font-size: 11px;
+  color: var(--text3);
+}
+.read-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
 /* ── Search ── */
 .search-wrap { position: relative; margin-bottom: 10px; }
 .search-wrap input {
@@ -184,6 +211,29 @@ body {
 .fav-count {
   font-size: 11px; color: var(--red);
   display: flex; align-items: center; gap: 3px;
+}
+
+.read-status-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+.read-status-badge.done {
+  color: var(--green);
+  background: rgba(16,185,129,.14);
+  border-color: rgba(16,185,129,.35);
+}
+.read-status-badge.reading {
+  color: var(--blue);
+  background: rgba(79,70,229,.12);
+  border-color: rgba(79,70,229,.3);
+}
+.read-status-badge.todo {
+  color: var(--text2);
+  background: var(--bg3);
+  border-color: var(--border2);
 }
 
 .card-right {
@@ -856,6 +906,11 @@ body {
   .bookmark-wrap { padding: 16px 24px 60px; }
   .bookmark-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
+@media (max-width: 520px) {
+  .read-stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 </style>
 </head>
 <body>
@@ -892,6 +947,14 @@ body {
 </div>
 
 <div id="page-books">
+<div class="ctrl-row" style="padding-top:10px;padding-bottom:10px;">
+  <div class="read-stats-row" style="width:100%;" id="readStatsRow">
+    <div class="read-stat-card"><div class="read-stat-label">总书目</div><div class="read-stat-value" id="statTotalBooks">0</div></div>
+    <div class="read-stat-card"><div class="read-stat-label">已读</div><div class="read-stat-value" id="statReadDone">0</div></div>
+    <div class="read-stat-card"><div class="read-stat-label">在读</div><div class="read-stat-value" id="statReading">0</div></div>
+    <div class="read-stat-card"><div class="read-stat-label">想读</div><div class="read-stat-value" id="statReadTodo">0</div></div>
+  </div>
+</div>
 <!-- 筛选面板 -->
 <div class="filter-panel" id="panel-status">
   <div class="filter-section">
@@ -1111,20 +1174,31 @@ let favRangeMaxWan = 50;
 
 async function init() {
   try {
-    const [booksRes, mediaRes, bookmarksRes] = await Promise.all([
+    const [booksRes, notesRes, mediaRes, bookmarksRes] = await Promise.all([
       fetch('/api/books'),
+      fetch('/api/notes'),
       fetch('/api/media'),
       fetch('/api/bookmarks'),
     ]);
 
     allBooks = await booksRes.json();
+    const allNotes = await notesRes.json();
     allMedia = await mediaRes.json();
     allBookmarks = await bookmarksRes.json();
+
+    notesByBook = {};
+    const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
+    noteList.forEach(item => {
+      const name = String(item.book_name || '').trim();
+      if (!name) return;
+      notesByBook[name] = item;
+    });
 
     buildFilterOptions();
     buildMediaCategories();
     buildBookmarkPresetTags();
     buildBookmarkTagFilters();
+    updateReadStats();
     applyFilter();
     renderMedia();
     renderBookmarks();
@@ -1145,7 +1219,7 @@ function buildFilterOptions() {
   document.getElementById('statusChips').innerHTML =
     statuses.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'status')">${s}</div>`).join('');
 
-  const readStatuses = ['全部', '想读', '在读', '已读'];
+  const readStatuses = ['全部', '已读', '在读', '想读', '未标记'];
   document.getElementById('readStatusChips').innerHTML =
     readStatuses.map((s, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${s}" onclick="toggleChip(this,'read-status')">${s}</div>`).join('');
 
@@ -1239,6 +1313,38 @@ function getBookEra(book) {
 
 function getBookNote(book) {
   return notesByBook[String(book['书名'] || '').trim()] || null;
+}
+
+function normalizeReadStatus(status) {
+  const s = String(status || '').trim();
+  return ['已读', '在读', '想读'].includes(s) ? s : '';
+}
+
+function getReadStatusBadge(status) {
+  const normalized = normalizeReadStatus(status);
+  if (!normalized) return '';
+  if (normalized === '已读') return '<span class="read-status-badge done">已读</span>';
+  if (normalized === '在读') return '<span class="read-status-badge reading">在读</span>';
+  return '<span class="read-status-badge todo">想读</span>';
+}
+
+function updateReadStats() {
+  let done = 0;
+  let reading = 0;
+  let todo = 0;
+
+  allBooks.forEach(book => {
+    const note = getBookNote(book);
+    const status = normalizeReadStatus(note ? note.status : '');
+    if (status === '已读') done++;
+    else if (status === '在读') reading++;
+    else if (status === '想读') todo++;
+  });
+
+  document.getElementById('statTotalBooks').textContent = String(allBooks.length || 0);
+  document.getElementById('statReadDone').textContent = String(done);
+  document.getElementById('statReading').textContent = String(reading);
+  document.getElementById('statReadTodo').textContent = String(todo);
 }
 
 function normalizeRatingFilter(value) {
@@ -1416,9 +1522,11 @@ function applyFilter() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   filtered = allBooks.filter(b => {
     const note = getBookNote(b);
+    const noteStatus = normalizeReadStatus(note ? note.status : '');
     if (q && !b['书名'].toLowerCase().includes(q) && !b['作者'].toLowerCase().includes(q)) return false;
     if (selStatus && b['投诉状态'] !== selStatus) return false;
-    if (selReadStatus && (!note || note.status !== selReadStatus)) return false;
+    if (selReadStatus === '未标记' && noteStatus) return false;
+    if (selReadStatus && selReadStatus !== '未标记' && noteStatus !== selReadStatus) return false;
     if (selReadRating) {
       const noteRating = note ? Number(note.rating) || 0 : 0;
       const ratingFilter = normalizeRatingFilter(selReadRating);
@@ -1533,6 +1641,8 @@ function onWindowScroll() {
 // ── Grid Card ──
 function renderGridCard(b, idx) {
   const links = b['盗版链接'] || [];
+  const note = getBookNote(b);
+  const readBadge = getReadStatusBadge(note ? note.status : '');
   const status = b['投诉状态'] || '待投诉';
   const dotClass = status === '已投诉' ? 'done' : status === '未发现盗版' ? 'none-s' : 'pending';
   const tags = getBookTags(b).slice(0, 3);
@@ -1544,6 +1654,7 @@ function renderGridCard(b, idx) {
     <div class="g-card-title">${b['书名']}</div>
     <div class="g-card-author">${b['作者']}</div>
     <div class="g-card-tags">
+      ${readBadge}
       ${b['类型'] ? `<span class="g-card-tag type">${b['类型']}</span>` : ''}
       ${tags.map(t => `<span class="g-card-tag content" onclick="event.stopPropagation(); quickFilterTag('${String(t).replace(/'/g, "\\'")}')">${t}</span>`).join('')}
     </div>
@@ -1705,6 +1816,7 @@ async function saveCurrentNote() {
       status: statusEl ? statusEl.value : '想读',
       note: noteEl ? noteEl.value : '',
     };
+    updateReadStats();
     applyFilter();
     
     // 更改按钮状态
@@ -1734,6 +1846,8 @@ async function saveCurrentNote() {
 // ── List Card (original) ──
 function renderCard(b, idx) {
   const links = b['盗版链接'] || [];
+  const note = getBookNote(b);
+  const readBadge = getReadStatusBadge(note ? note.status : '');
   const status = b['投诉状态'] || '待投诉';
   const dotClass = status === '已投诉' ? 'done' : status === '未发现盗版' ? 'none' : 'pending';
   const tags = getBookTags(b).slice(0, 4);
@@ -1756,6 +1870,7 @@ function renderCard(b, idx) {
         <div class="card-title-row">
           <span class="book-name">${b['书名']}</span>
           <span class="book-author">${b['作者']}</span>
+          ${readBadge}
         </div>
         <div class="card-meta">
           ${b['类型'] ? `<span class="meta-tag">${b['类型']}</span>` : ''}

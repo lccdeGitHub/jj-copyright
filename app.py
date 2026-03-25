@@ -82,6 +82,11 @@ def update_status():
         json.dump(data, f, ensure_ascii=False, indent=2)
     return jsonify({"ok": True})
 
+@app.route("/api/notes", methods=["GET"])
+def get_notes():
+    result = supabase_get("notes")
+    return jsonify(result if isinstance(result, list) else [])
+
 @app.route("/api/notes", methods=["POST"])
 def save_note():
     body = request.json or {}
