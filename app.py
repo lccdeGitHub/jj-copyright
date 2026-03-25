@@ -136,6 +136,42 @@ def save_media_note():
     req.patch(url, headers=headers_api, json=data, params={"title": f"eq.{title}"})
     return jsonify({"ok": True})
 
+@app.route("/api/bookmarks", methods=["GET"])
+def get_bookmarks():
+    tag = request.args.get("tag", "")
+    params = {}
+    if tag:
+        params["tags"] = f"like.*{tag}*"
+    result = supabase_get("bookmarks", params)
+    return jsonify(result if isinstance(result, list) else [])
+
+@app.route("/api/bookmarks", methods=["POST"])
+def add_bookmark():
+    body = request.json or {}
+    url_val = str(body.get("url", "")).strip()
+    if not url_val:
+        return jsonify({"ok": False}), 400
+    data = {
+        "url": url_val,
+        "title": str(body.get("title", "")),
+        "description": str(body.get("description", "")),
+        "tags": str(body.get("tags", "")),
+        "note": str(body.get("note", "")),
+    }
+    supabase_upsert("bookmarks", data)
+    return jsonify({"ok": True})
+
+@app.route("/api/bookmarks/<int:bookmark_id>", methods=["DELETE"])
+def delete_bookmark(bookmark_id):
+    url_api = f"{SUPABASE_URL}/rest/v1/bookmarks"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    req.delete(url_api, headers=headers_api, params={"id": f"eq.{bookmark_id}"})
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

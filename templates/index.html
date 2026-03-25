@@ -631,6 +631,110 @@ body {
   gap: 8px;
 }
 
+/* ── Bookmarks ── */
+.bookmark-wrap { padding: 12px 12px 80px; }
+.bookmark-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.bookmark-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.bookmark-tag-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+.bookmark-tag-row::-webkit-scrollbar { display: none; }
+.bookmark-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.bookmark-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bookmark-link {
+  color: var(--text);
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.bookmark-link:hover { color: var(--accent); }
+.bookmark-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bookmark-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bookmark-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.bookmark-note {
+  font-size: 12px;
+  color: var(--text2);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.bookmark-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.bookmark-form {
+  padding: 14px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bookmark-label {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.bookmark-input-wrap { display: flex; flex-direction: column; }
+.bookmark-tag-preset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.bookmark-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ── Tab bar ── */
 .tab-bar {
   display: flex; gap: 0;
@@ -749,6 +853,8 @@ body {
   .card-footer { padding: 10px 18px; }
   .book-name { font-size: 16px; }
   .media-wrap { padding: 16px 24px 60px; }
+  .bookmark-wrap { padding: 16px 24px 60px; }
+  .bookmark-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
 </style>
 </head>
@@ -780,6 +886,7 @@ body {
   <div class="tab-bar">
     <button class="tab-btn active" id="tab-books" onclick="switchTab('books')">📋 维权记录</button>
     <button class="tab-btn" id="tab-media" onclick="switchTab('media')">🎬 素材库</button>
+    <button class="tab-btn" id="tab-bookmarks" onclick="switchTab('bookmarks')">⭐ 收藏夹</button>
     <button class="tab-btn" id="tab-author" onclick="switchTab('author')">📊 作者数据</button>
   </div>
 </div>
@@ -891,6 +998,17 @@ body {
   </div>
 </div>
 
+<div id="page-bookmarks" style="display:none">
+  <div class="bookmark-wrap">
+    <div class="bookmark-toolbar">
+      <div class="bookmark-title">收藏夹</div>
+      <button class="btn-save-note" onclick="openBookmarkModal()">+ 添加收藏</button>
+    </div>
+    <div class="bookmark-tag-row" id="bookmarkTagRow"></div>
+    <div class="bookmark-list" id="bookmarkList"></div>
+  </div>
+</div>
+
 <div class="modal-overlay media-note-modal" id="mediaNoteModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -907,6 +1025,45 @@ body {
     <div class="media-modal-actions">
       <button class="btn-note" onclick="closeMediaNoteModal()">取消</button>
       <button class="btn-save-note" id="mediaSaveBtn" onclick="saveMediaNote()">保存笔记</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bookmarkModal">
+  <div class="modal-box" style="max-width:620px;">
+    <div class="modal-head">
+      <div class="modal-head-main">
+        <div class="modal-title">添加收藏</div>
+        <div class="modal-author">保存灵感链接与备注</div>
+      </div>
+      <button class="modal-close" onclick="closeBookmarkModal()">✕</button>
+    </div>
+    <div class="bookmark-form">
+      <div class="bookmark-input-wrap">
+        <div class="bookmark-label">URL（必填）</div>
+        <input id="bmUrl" class="note-input" placeholder="https://..." />
+      </div>
+      <div class="bookmark-input-wrap">
+        <div class="bookmark-label">标题</div>
+        <input id="bmTitle" class="note-input" placeholder="给这条收藏起个名字" />
+      </div>
+      <div class="bookmark-input-wrap">
+        <div class="bookmark-label">描述</div>
+        <textarea id="bmDesc" class="notes-textarea" placeholder="简要描述内容"></textarea>
+      </div>
+      <div class="bookmark-input-wrap">
+        <div class="bookmark-label">标签（逗号分隔）</div>
+        <input id="bmTags" class="note-input" placeholder="如：写作素材, 情节灵感" />
+        <div class="bookmark-tag-preset" id="bookmarkPresetTags"></div>
+      </div>
+      <div class="bookmark-input-wrap">
+        <div class="bookmark-label">备注</div>
+        <textarea id="bmNote" class="notes-textarea" placeholder="记录你的想法"></textarea>
+      </div>
+      <div class="bookmark-form-actions">
+        <button class="btn-note" onclick="closeBookmarkModal()">取消</button>
+        <button class="btn-save-note" id="bookmarkSaveBtn" onclick="saveBookmark()">保存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -931,6 +1088,14 @@ let mediaCategory = '';
 let mediaSortMode = '';
 let currentMediaItem = null;
 
+let allBookmarks = [];
+let filteredBookmarks = [];
+let selectedBookmarkTag = '';
+const BOOKMARK_PRESET_TAGS = [
+  '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
+  '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
+];
+
 let activePanel = null;
 let selStatus = '';
 let selChannel = '';
@@ -946,23 +1111,30 @@ let favRangeMaxWan = 50;
 
 async function init() {
   try {
-    const [booksRes, mediaRes] = await Promise.all([
+    const [booksRes, mediaRes, bookmarksRes] = await Promise.all([
       fetch('/api/books'),
       fetch('/api/media'),
+      fetch('/api/bookmarks'),
     ]);
 
     allBooks = await booksRes.json();
     allMedia = await mediaRes.json();
+    allBookmarks = await bookmarksRes.json();
 
     buildFilterOptions();
     buildMediaCategories();
+    buildBookmarkPresetTags();
+    buildBookmarkTagFilters();
     applyFilter();
     renderMedia();
+    renderBookmarks();
   } catch(e) {
     document.getElementById('list').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
     document.getElementById('mediaGrid').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>素材数据加载失败</div>';
+    document.getElementById('bookmarkList').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>收藏数据加载失败</div>';
   }
   initAuthor();
 }
@@ -1230,8 +1402,11 @@ function quickFilterTag(tag) {
 
 function onFilter() {
   const mediaVisible = document.getElementById('page-media').style.display !== 'none';
+  const bookmarksVisible = document.getElementById('page-bookmarks').style.display !== 'none';
   if (mediaVisible) {
     renderMedia();
+  } else if (bookmarksVisible) {
+    renderBookmarks();
   } else {
     applyFilter();
   }
@@ -1653,18 +1828,21 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   closeModal();
   closeMediaNoteModal();
+  closeBookmarkModal();
 });
 
 // ── Tab switching ──
 function switchTab(tab) {
   const isBooks = tab === 'books';
   const isMedia = tab === 'media';
+  const isBookmarks = tab === 'bookmarks';
   const isAuthor = tab === 'author';
   const filterRowEl = document.getElementById('filterRow');
   const ctrlRowEl = document.querySelector('#page-books .ctrl-row');
 
   document.getElementById('page-books').style.display = isBooks ? '' : 'none';
   document.getElementById('page-media').style.display = isMedia ? '' : 'none';
+  document.getElementById('page-bookmarks').style.display = isBookmarks ? '' : 'none';
   document.getElementById('page-author').style.display = isAuthor ? '' : 'none';
   filterRowEl.style.display = isBooks ? '' : 'none';
   if (ctrlRowEl) ctrlRowEl.style.display = isBooks ? '' : 'none';
@@ -1677,6 +1855,9 @@ function switchTab(tab) {
     const total = mediaFiltered.length || allMedia.length || 0;
     stats.textContent = `${total} 条素材`;
     renderMedia();
+  } else if (isBookmarks) {
+    renderBookmarks();
+    stats.textContent = `${filteredBookmarks.length || allBookmarks.length || 0} 条收藏`;
   } else if (isBooks) {
     applyFilter();
   } else {
@@ -1883,7 +2064,7 @@ function openMediaNoteModal(idx) {
 
 function closeMediaNoteModal() {
   document.getElementById('mediaNoteModal').classList.remove('open');
-  if (!document.getElementById('modalOverlay').classList.contains('open')) {
+  if (!document.getElementById('modalOverlay').classList.contains('open') && !document.getElementById('bookmarkModal').classList.contains('open')) {
     document.body.style.overflow = '';
   }
   currentMediaItem = null;
@@ -1925,8 +2106,199 @@ async function saveMediaNote() {
   }, 1200);
 }
 
+function normalizeBookmarkTags(raw) {
+  if (Array.isArray(raw)) {
+    return [...new Set(raw.map(v => String(v || '').trim()).filter(Boolean))];
+  }
+  return [...new Set(String(raw || '')
+    .split(/[，,|/\s]+/)
+    .map(v => v.trim())
+    .filter(Boolean))];
+}
+
+function buildBookmarkPresetTags() {
+  const row = document.getElementById('bookmarkPresetTags');
+  row.innerHTML = BOOKMARK_PRESET_TAGS.map(tag =>
+    `<button class="tag-chip" type="button" onclick="appendBookmarkTag('${tag}')">${tag}</button>`
+  ).join('');
+}
+
+function buildBookmarkTagFilters() {
+  const row = document.getElementById('bookmarkTagRow');
+  const dynTags = new Set();
+  (Array.isArray(allBookmarks) ? allBookmarks : []).forEach(item => {
+    normalizeBookmarkTags(item.tags).forEach(tag => dynTags.add(tag));
+  });
+  BOOKMARK_PRESET_TAGS.forEach(tag => dynTags.add(tag));
+  const tags = ['全部', ...Array.from(dynTags).sort((a, b) => a.localeCompare(b, 'zh-CN'))];
+  row.innerHTML = tags.map(tag => {
+    const active = (tag === '全部' && !selectedBookmarkTag) || selectedBookmarkTag === tag;
+    return `<button class="filter-btn ${active ? 'active' : ''}" data-bookmark-tag="${tag}" onclick="setBookmarkTag('${tag}')">${tag}</button>`;
+  }).join('');
+}
+
+function setBookmarkTag(tag) {
+  selectedBookmarkTag = tag === '全部' ? '' : tag;
+  document.querySelectorAll('#bookmarkTagRow .filter-btn').forEach(btn => btn.classList.remove('active'));
+  const activeVal = selectedBookmarkTag || '全部';
+  const target = document.querySelector(`#bookmarkTagRow .filter-btn[data-bookmark-tag="${activeVal}"]`);
+  if (target) target.classList.add('active');
+  renderBookmarks();
+}
+
+function appendBookmarkTag(tag) {
+  const input = document.getElementById('bmTags');
+  if (!input) return;
+  const tags = normalizeBookmarkTags(input.value);
+  if (!tags.includes(tag)) tags.push(tag);
+  input.value = tags.join(', ');
+}
+
+function openBookmarkModal() {
+  document.getElementById('bmUrl').value = '';
+  document.getElementById('bmTitle').value = '';
+  document.getElementById('bmDesc').value = '';
+  document.getElementById('bmTags').value = '';
+  document.getElementById('bmNote').value = '';
+  document.getElementById('bookmarkModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBookmarkModal() {
+  document.getElementById('bookmarkModal').classList.remove('open');
+  if (!document.getElementById('modalOverlay').classList.contains('open') && !document.getElementById('mediaNoteModal').classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
+}
+
+async function saveBookmark() {
+  const urlEl = document.getElementById('bmUrl');
+  const titleEl = document.getElementById('bmTitle');
+  const descEl = document.getElementById('bmDesc');
+  const tagsEl = document.getElementById('bmTags');
+  const noteEl = document.getElementById('bmNote');
+  const btn = document.getElementById('bookmarkSaveBtn');
+
+  const url = String(urlEl.value || '').trim();
+  if (!url) {
+    urlEl.focus();
+    return;
+  }
+
+  const payload = {
+    url,
+    title: String(titleEl.value || '').trim(),
+    description: String(descEl.value || '').trim(),
+    tags: normalizeBookmarkTags(tagsEl.value).join(', '),
+    note: String(noteEl.value || '').trim(),
+  };
+
+  btn.disabled = true;
+  const original = btn.textContent;
+  try {
+    const res = await fetch('/api/bookmarks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('save bookmark failed');
+
+    const listRes = await fetch('/api/bookmarks');
+    allBookmarks = await listRes.json();
+    buildBookmarkTagFilters();
+    renderBookmarks();
+
+    btn.textContent = '已保存✓';
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+      closeBookmarkModal();
+    }, 900);
+  } catch (e) {
+    console.error('保存收藏失败', e);
+    btn.textContent = '保存失败';
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.disabled = false;
+    }, 1200);
+  }
+}
+
+function bookmarkTagStyle(tag) {
+  const seed = hashText(tag);
+  const hue = seed % 360;
+  return `color:hsl(${hue}, 48%, 34%);background:hsl(${hue}, 85%, 94%);border-color:hsl(${hue}, 60%, 80%);`;
+}
+
+async function deleteBookmark(id) {
+  if (!id) return;
+  if (!window.confirm('确定删除这条收藏吗？')) return;
+  try {
+    const res = await fetch(`/api/bookmarks/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('delete bookmark failed');
+    allBookmarks = (Array.isArray(allBookmarks) ? allBookmarks : []).filter(item => Number(item.id) !== Number(id));
+    buildBookmarkTagFilters();
+    renderBookmarks();
+  } catch (e) {
+    console.error('删除收藏失败', e);
+  }
+}
+
+function renderBookmarks() {
+  const list = document.getElementById('bookmarkList');
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const source = Array.isArray(allBookmarks) ? [...allBookmarks] : [];
+  source.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
+  filteredBookmarks = source.filter(item => {
+    const tags = normalizeBookmarkTags(item.tags);
+    if (selectedBookmarkTag && !tags.includes(selectedBookmarkTag)) return false;
+    if (!q) return true;
+    const text = [item.title, item.description, item.url, item.note, item.tags].map(v => String(v || '').toLowerCase()).join(' ');
+    return text.includes(q);
+  });
+
+  if (!filteredBookmarks.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🔖</div>暂无符合条件的收藏</div>';
+    if (document.getElementById('page-bookmarks').style.display !== 'none') {
+      document.getElementById('stats').textContent = '0 条收藏';
+    }
+    return;
+  }
+
+  list.innerHTML = filteredBookmarks.map(item => {
+    const title = escHtml(item.title || item.url || '未命名收藏');
+    const desc = escHtml(item.description || '暂无描述');
+    const note = escHtml(item.note || '');
+    const url = escHtml(item.url || '#');
+    const tags = normalizeBookmarkTags(item.tags);
+    const id = Number(item.id) || 0;
+
+    return `
+      <div class="bookmark-card">
+        <a class="bookmark-link" href="${url}" target="_blank" rel="noopener">${title}</a>
+        <div class="bookmark-desc">${desc}</div>
+        <div class="bookmark-tags">
+          ${tags.length ? tags.map(tag => `<span class="bookmark-badge" style="${bookmarkTagStyle(tag)}">${escHtml(tag)}</span>`).join('') : '<span class="bookmark-badge" style="color:var(--text3);background:var(--bg3);border-color:var(--border);">未分类</span>'}
+        </div>
+        ${note ? `<div class="bookmark-note">备注：${note}</div>` : ''}
+        <div class="bookmark-actions">
+          <button class="btn-note" onclick="deleteBookmark(${id})">删除</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (document.getElementById('page-bookmarks').style.display !== 'none') {
+    document.getElementById('stats').textContent = `${filteredBookmarks.length} 条收藏`;
+  }
+}
+
 document.getElementById('mediaNoteModal').addEventListener('click', e => {
   if (e.target === document.getElementById('mediaNoteModal')) closeMediaNoteModal();
+});
+
+document.getElementById('bookmarkModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('bookmarkModal')) closeBookmarkModal();
 });
 
 // ── Author data ──
