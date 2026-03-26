@@ -1002,8 +1002,8 @@ body {
   <div class="filter-section">
     <div class="filter-label">最低收藏数</div>
     <div class="range-row">
-      <input type="range" id="favRange" min="5" max="100" value="5" step="5" oninput="onFavRange()">
-      <span class="range-val" id="favRangeVal">5万+</span>
+      <input type="range" id="favRange" min="0" max="100" value="0" step="1" oninput="onFavRange()">
+      <span class="range-val" id="favRangeVal">全部</span>
     </div>
   </div>
 </div>
@@ -1168,8 +1168,8 @@ let selTags = new Set();
 let selPiracy = '';
 let selReadStatus = '';
 let selReadRating = '';
-let favMin = 50000;
-let favRangeMinWan = 5;
+let favMin = 0;
+let favRangeMinWan = 0;
 let favRangeMaxWan = 50;
 
 async function init() {
@@ -1255,7 +1255,7 @@ function buildFilterOptions() {
   // 收藏范围改为按数据自适应上限，避免 100w 区间样本过少
   const favNums = allBooks.map(b => parseFavNum(b['收藏数'])).filter(n => n > 0).sort((a, b) => a - b);
   const p95 = favNums.length ? favNums[Math.floor((favNums.length - 1) * 0.95)] : 500000;
-  favRangeMinWan = 5;
+  favRangeMinWan = 0;
   favRangeMaxWan = Math.max(20, Math.min(60, Math.ceil((p95 / 10000) / 5) * 5));
 
   const slider = document.getElementById('favRange');
@@ -1264,12 +1264,25 @@ function buildFilterOptions() {
   slider.step = 1;
   slider.value = favRangeMinWan;
   favMin = favRangeMinWan * 10000;
-  document.getElementById('favRangeVal').textContent = `${favRangeMinWan}万+`;
+  document.getElementById('favRangeVal').textContent = '全部';
 }
 
 function parseFavNum(str) {
-  if (!str || str === '未获取') return 0;
-  return parseInt(str.replace(/,/g,'')) || 0;
+  if (str === null || str === undefined) return 0;
+  if (typeof str === 'number' && Number.isFinite(str)) return Math.max(0, Math.round(str));
+
+  const raw = String(str).trim();
+  if (!raw || raw === '未获取') return 0;
+
+  const matched = raw.match(/([\d,.]+)\s*(亿|万)?/);
+  if (!matched) return 0;
+
+  const num = parseFloat(matched[1].replace(/,/g, ''));
+  if (!Number.isFinite(num)) return 0;
+
+  const unit = matched[2] || '';
+  const multiplier = unit === '亿' ? 100000000 : unit === '万' ? 10000 : 1;
+  return Math.max(0, Math.round(num * multiplier));
 }
 
 function getBookTags(book) {
@@ -1461,8 +1474,8 @@ function togglePiracy(el) {
 function onFavRange() {
   const v = parseInt(document.getElementById('favRange').value);
   favMin = v * 10000;
-  document.getElementById('favRangeVal').textContent = `${v}万+`;
-  document.getElementById('btnFav').classList.toggle('has-value', v > favRangeMinWan);
+  document.getElementById('favRangeVal').textContent = v <= 0 ? '全部' : `${v}万+`;
+  document.getElementById('btnFav').classList.toggle('has-value', v > 0);
   applyFilter();
 }
 
@@ -1479,7 +1492,7 @@ function clearAll() {
   document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('has-value'));
   document.getElementById('favRange').value = favRangeMinWan;
-  document.getElementById('favRangeVal').textContent = `${favRangeMinWan}万+`;
+  document.getElementById('favRangeVal').textContent = '全部';
   document.querySelectorAll('#readStatusChips .tag-chip').forEach(c => {
     if (c.dataset.val === '全部') c.classList.add('active');
   });
