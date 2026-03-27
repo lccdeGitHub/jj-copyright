@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import json
 import os
 import requests as req
+import base64
 
 app = Flask(__name__)
 
@@ -177,6 +178,47 @@ def delete_bookmark(bookmark_id):
     req.delete(url_api, headers=headers_api, params={"id": f"eq.{bookmark_id}"})
     return jsonify({"ok": True})
 
+@app.route("/api/upload", methods=["POST"])
+def upload_image():
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "no file"}), 400
+    
+    file = request.files["file"]
+    filename = file.filename
+    file_data = file.read()
+    
+    # 上传到Supabase Storage
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/images/{filename}"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": file.content_type,
+    }
+    r = req.post(upload_url, headers=headers_api, data=file_data)
+    
+    if r.status_code in (200, 201):
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/images/{filename}"
+        return jsonify({"ok": True, "url": public_url})
+    else:
+        return jsonify({"ok": False, "error": r.text}), 500
+
+@app.route("/api/images", methods=["GET"])
+def get_images():
+    list_url = f"{SUPABASE_URL}/storage/v1/object/list/images"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+    r = req.post(list_url, headers=headers_api, json={})
+    files = r.json() if r.status_code == 200 else []
+    result = []
+    for f in files:
+        name = f.get("name", "")
+        url = f"{SUPABASE_URL}/storage/v1/object/public/images/{name}"
+        result.append({"name": name, "url": url})
+    return jsonify(result)
+    
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

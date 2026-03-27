@@ -785,6 +785,118 @@ body {
   gap: 8px;
 }
 
+/* ── Image bed ── */
+.image-bed-wrap { padding: 12px 12px 80px; }
+.image-upload-zone {
+  border: 1px dashed var(--border2);
+  background: var(--bg2);
+  border-radius: var(--radius);
+  padding: 22px 16px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: border-color .18s, transform .15s, box-shadow .2s;
+}
+.image-upload-zone:hover {
+  border-color: var(--accent2);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.image-upload-zone.dragover {
+  border-color: var(--accent2);
+  background: rgba(99,102,241,.06);
+}
+.image-upload-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.image-upload-sub {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 6px;
+}
+.image-upload-tip {
+  margin-top: 10px;
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--text3);
+}
+.image-upload-tip.ok { color: var(--green); }
+.image-upload-tip.err { color: var(--red); }
+.image-bed-list {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.image-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.image-thumb-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.image-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.image-card-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.image-name {
+  font-size: 12px;
+  color: var(--text2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.image-url-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.image-url-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  background: var(--bg3);
+  color: var(--blue);
+  cursor: pointer;
+}
+.image-url-input:focus {
+  outline: none;
+  border-color: var(--accent2);
+}
+.image-copy-tip {
+  font-size: 11px;
+  color: var(--text3);
+  min-height: 16px;
+}
+.image-copy-tip.ok { color: var(--green); }
+.image-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ── Tab bar ── */
 .tab-bar {
   display: flex; gap: 0;
@@ -903,6 +1015,7 @@ body {
   .card-footer { padding: 10px 18px; }
   .book-name { font-size: 16px; }
   .media-wrap { padding: 16px 24px 60px; }
+  .image-bed-wrap { padding: 16px 24px 60px; }
   .bookmark-wrap { padding: 16px 24px 60px; }
   .bookmark-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
@@ -941,6 +1054,7 @@ body {
   <div class="tab-bar">
     <button class="tab-btn active" id="tab-books" onclick="switchTab('books')">📋 维权记录</button>
     <button class="tab-btn" id="tab-media" onclick="switchTab('media')">🎬 素材库</button>
+    <button class="tab-btn" id="tab-images" onclick="switchTab('images')">🖼️ 图床</button>
     <button class="tab-btn" id="tab-bookmarks" onclick="switchTab('bookmarks')">⭐ 收藏夹</button>
     <button class="tab-btn" id="tab-author" onclick="switchTab('author')">📊 作者数据</button>
   </div>
@@ -1072,6 +1186,18 @@ body {
   </div>
 </div>
 
+<div id="page-images" style="display:none">
+  <div class="image-bed-wrap">
+    <div class="image-upload-zone" id="imageUploadZone" onclick="triggerImagePicker(event)">
+      <input id="imageFileInput" type="file" accept="image/*" multiple style="display:none" onchange="handleImageInputChange(event)">
+      <div class="image-upload-title">点击或拖拽上传图片</div>
+      <div class="image-upload-sub">支持多张同时上传，将自动提交到 /api/upload</div>
+      <div class="image-upload-tip" id="imageUploadTip">可上传 jpg、png、gif、webp 等常见格式</div>
+    </div>
+    <div class="image-bed-list" id="imageBedList"></div>
+  </div>
+</div>
+
 <div class="modal-overlay media-note-modal" id="mediaNoteModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -1154,6 +1280,10 @@ let currentMediaItem = null;
 let allBookmarks = [];
 let filteredBookmarks = [];
 let selectedBookmarkTag = '';
+let allImages = [];
+let filteredImages = [];
+let imageBedReady = false;
+let hiddenImageNames = new Set();
 const BOOKMARK_PRESET_TAGS = [
   '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
   '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
@@ -1174,17 +1304,29 @@ let favRangeMaxWan = 50;
 
 async function init() {
   try {
-    const [booksRes, notesRes, mediaRes, bookmarksRes] = await Promise.all([
+    const hiddenRaw = localStorage.getItem('jj_hidden_images') || '[]';
+    const hiddenList = JSON.parse(hiddenRaw);
+    if (Array.isArray(hiddenList)) {
+      hiddenImageNames = new Set(hiddenList.map(item => String(item || '').trim()).filter(Boolean));
+    }
+  } catch (e) {
+    hiddenImageNames = new Set();
+  }
+
+  try {
+    const [booksRes, notesRes, mediaRes, bookmarksRes, imagesRes] = await Promise.all([
       fetch('/api/books'),
       fetch('/api/notes'),
       fetch('/api/media'),
       fetch('/api/bookmarks'),
+      fetch('/api/images'),
     ]);
 
     allBooks = await booksRes.json();
     const allNotes = await notesRes.json();
     allMedia = await mediaRes.json();
     allBookmarks = await bookmarksRes.json();
+    allImages = normalizeImageList(await imagesRes.json());
 
     notesByBook = {};
     const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
@@ -1198,10 +1340,12 @@ async function init() {
     buildMediaCategories();
     buildBookmarkPresetTags();
     buildBookmarkTagFilters();
+    initImageBedEvents();
     updateReadStats();
     applyFilter();
     renderMedia();
     renderBookmarks();
+    renderImageBed();
   } catch(e) {
     document.getElementById('list').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
@@ -1209,6 +1353,8 @@ async function init() {
       '<div class="empty"><div class="empty-icon">⚠️</div>素材数据加载失败</div>';
     document.getElementById('bookmarkList').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>收藏数据加载失败</div>';
+    document.getElementById('imageBedList').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>图床数据加载失败</div>';
   }
   initAuthor();
 }
@@ -1521,9 +1667,12 @@ function quickFilterTag(tag) {
 
 function onFilter() {
   const mediaVisible = document.getElementById('page-media').style.display !== 'none';
+  const imagesVisible = document.getElementById('page-images').style.display !== 'none';
   const bookmarksVisible = document.getElementById('page-bookmarks').style.display !== 'none';
   if (mediaVisible) {
     renderMedia();
+  } else if (imagesVisible) {
+    renderImageBed();
   } else if (bookmarksVisible) {
     renderBookmarks();
   } else {
@@ -1963,6 +2112,7 @@ document.addEventListener('keydown', e => {
 function switchTab(tab) {
   const isBooks = tab === 'books';
   const isMedia = tab === 'media';
+  const isImages = tab === 'images';
   const isBookmarks = tab === 'bookmarks';
   const isAuthor = tab === 'author';
   const filterRowEl = document.getElementById('filterRow');
@@ -1970,6 +2120,7 @@ function switchTab(tab) {
 
   document.getElementById('page-books').style.display = isBooks ? '' : 'none';
   document.getElementById('page-media').style.display = isMedia ? '' : 'none';
+  document.getElementById('page-images').style.display = isImages ? '' : 'none';
   document.getElementById('page-bookmarks').style.display = isBookmarks ? '' : 'none';
   document.getElementById('page-author').style.display = isAuthor ? '' : 'none';
   filterRowEl.style.display = isBooks ? '' : 'none';
@@ -1983,6 +2134,9 @@ function switchTab(tab) {
     const total = mediaFiltered.length || allMedia.length || 0;
     stats.textContent = `${total} 条素材`;
     renderMedia();
+  } else if (isImages) {
+    renderImageBed();
+    stats.textContent = `${filteredImages.length || allImages.length || 0} 张图片`;
   } else if (isBookmarks) {
     renderBookmarks();
     stats.textContent = `${filteredBookmarks.length || allBookmarks.length || 0} 条收藏`;
@@ -2418,6 +2572,232 @@ function renderBookmarks() {
 
   if (document.getElementById('page-bookmarks').style.display !== 'none') {
     document.getElementById('stats').textContent = `${filteredBookmarks.length} 条收藏`;
+  }
+}
+
+function normalizeImageList(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map(item => {
+      const name = String(item && item.name ? item.name : '').trim();
+      const url = String(item && item.url ? item.url : '').trim();
+      if (!url) return null;
+      return { name: name || url.split('/').pop() || '未命名图片', url };
+    })
+    .filter(Boolean);
+}
+
+function saveHiddenImageNames() {
+  localStorage.setItem('jj_hidden_images', JSON.stringify(Array.from(hiddenImageNames)));
+}
+
+function initImageBedEvents() {
+  if (imageBedReady) return;
+  const zone = document.getElementById('imageUploadZone');
+  if (!zone) return;
+
+  ['dragenter', 'dragover'].forEach(type => {
+    zone.addEventListener(type, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(type => {
+    zone.addEventListener(type, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (type === 'drop') {
+        handleUploadFiles(e.dataTransfer ? e.dataTransfer.files : []);
+      }
+      zone.classList.remove('dragover');
+    });
+  });
+
+  imageBedReady = true;
+}
+
+function triggerImagePicker(event) {
+  if (event && event.target && event.target.tagName === 'INPUT') return;
+  const input = document.getElementById('imageFileInput');
+  if (input) input.click();
+}
+
+function handleImageInputChange(event) {
+  const files = event && event.target ? event.target.files : [];
+  handleUploadFiles(files);
+  if (event && event.target) event.target.value = '';
+}
+
+function setImageUploadTip(text, type) {
+  const tip = document.getElementById('imageUploadTip');
+  if (!tip) return;
+  tip.textContent = text || '';
+  tip.classList.remove('ok', 'err');
+  if (type === 'ok') tip.classList.add('ok');
+  if (type === 'err') tip.classList.add('err');
+}
+
+async function handleUploadFiles(fileList) {
+  const files = Array.from(fileList || []).filter(file => file && String(file.type || '').startsWith('image/'));
+  if (!files.length) {
+    setImageUploadTip('请选择图片文件后再上传', 'err');
+    return;
+  }
+
+  setImageUploadTip(`正在上传 ${files.length} 张图片...`, '');
+
+  const results = await Promise.allSettled(files.map(uploadSingleImage));
+  let success = 0;
+  let failed = 0;
+
+  results.forEach(result => {
+    if (result.status === 'fulfilled' && result.value && result.value.url) {
+      success += 1;
+      const item = result.value;
+      if (item.name) hiddenImageNames.delete(item.name);
+      const existedIndex = allImages.findIndex(img => img.url === item.url);
+      if (existedIndex >= 0) allImages.splice(existedIndex, 1);
+      allImages.unshift(item);
+    } else {
+      failed += 1;
+    }
+  });
+
+  saveHiddenImageNames();
+  renderImageBed();
+
+  if (failed === 0) {
+    setImageUploadTip(`上传成功 ${success} 张`, 'ok');
+  } else {
+    setImageUploadTip(`上传完成：成功 ${success} 张，失败 ${failed} 张`, failed === files.length ? 'err' : '');
+  }
+}
+
+async function uploadSingleImage(file) {
+  const formData = new FormData();
+  formData.append('file', file, file.name || 'image');
+
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || !payload || !payload.ok || !payload.url) {
+    throw new Error(payload && payload.error ? payload.error : 'upload failed');
+  }
+
+  return {
+    name: String(file.name || payload.url.split('/').pop() || '未命名图片'),
+    url: String(payload.url),
+  };
+}
+
+function renderImageBed() {
+  const list = document.getElementById('imageBedList');
+  if (!list) return;
+
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  filteredImages = allImages
+    .map((item, idx) => ({ ...item, __idx: idx }))
+    .filter(item => {
+      if (item.name && hiddenImageNames.has(item.name)) return false;
+      if (!q) return true;
+      return String(item.name || '').toLowerCase().includes(q) || String(item.url || '').toLowerCase().includes(q);
+    });
+
+  if (!filteredImages.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🖼️</div>暂无图片，先上传一张吧</div>';
+    if (document.getElementById('page-images').style.display !== 'none') {
+      document.getElementById('stats').textContent = '0 张图片';
+    }
+    return;
+  }
+
+  list.innerHTML = filteredImages.map(item => {
+    const safeName = escHtml(item.name || '未命名图片');
+    const safeUrl = escHtml(item.url || '');
+    return `
+      <div class="image-card">
+        <div class="image-thumb-wrap">
+          <img class="image-thumb" src="${safeUrl}" alt="${safeName}" loading="lazy" />
+        </div>
+        <div class="image-card-body">
+          <div class="image-name" title="${safeName}">${safeName}</div>
+          <div class="image-url-row">
+            <input class="image-url-input" readonly value="${safeUrl}" onclick="copyImageUrl(${item.__idx}, this)" />
+            <span class="image-copy-tip">点击输入框复制链接</span>
+          </div>
+          <div class="image-actions">
+            <button class="btn-note" onclick="removeImage(${item.__idx})">删除</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (document.getElementById('page-images').style.display !== 'none') {
+    document.getElementById('stats').textContent = `${filteredImages.length} 张图片`;
+  }
+}
+
+function showImageCopyTip(inputEl, text, ok) {
+  const row = inputEl ? inputEl.closest('.image-url-row') : null;
+  const tip = row ? row.querySelector('.image-copy-tip') : null;
+  if (!tip) return;
+  tip.textContent = text;
+  tip.classList.toggle('ok', !!ok);
+}
+
+function copyImageUrl(index, inputEl) {
+  const item = allImages[index];
+  if (!item || !item.url) return;
+  if (inputEl && typeof inputEl.select === 'function') inputEl.select();
+  navigator.clipboard.writeText(item.url).then(() => {
+    showImageCopyTip(inputEl, '已复制✓', true);
+    setTimeout(() => showImageCopyTip(inputEl, '点击输入框复制链接', false), 1200);
+  }).catch(() => {
+    showImageCopyTip(inputEl, '复制失败，请手动复制', false);
+  });
+}
+
+async function removeImage(index) {
+  const item = allImages[index];
+  if (!item) return;
+  if (!window.confirm('确定删除这张图片吗？')) return;
+
+  let removedByApi = false;
+  const imageName = String(item.name || '').trim();
+  const candidates = imageName
+    ? [
+        `/api/images/${encodeURIComponent(imageName)}`,
+        `/api/images?name=${encodeURIComponent(imageName)}`,
+      ]
+    : [];
+
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { method: 'DELETE' });
+      if (res.ok) {
+        removedByApi = true;
+        break;
+      }
+    } catch (e) {
+      // 忽略并尝试下一个候选接口
+    }
+  }
+
+  if (item.name) {
+    hiddenImageNames.add(item.name);
+    saveHiddenImageNames();
+  }
+  renderImageBed();
+
+  if (removedByApi) {
+    setImageUploadTip('删除成功', 'ok');
+  } else {
+    setImageUploadTip('已从列表移除（若需彻底删除请确认后端删除接口路径）', '');
   }
 }
 
