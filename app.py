@@ -3,6 +3,7 @@ import json
 import os
 import requests as req
 import base64
+import time
 
 app = Flask(__name__)
 
@@ -184,10 +185,15 @@ def upload_image():
         return jsonify({"ok": False, "error": "no file"}), 400
     
     file = request.files["file"]
-    filename = file.filename
+    
+    # 清理文件名，只保留英文数字和后缀
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    filename = f"{int(time.time())}_{re.sub(r'[^a-zA-Z0-9]', '', file.filename.rsplit('.', 1)[0])}.{ext}"
+    if not filename.replace(f".{ext}", ""):
+        filename = f"{int(time.time())}.{ext}"
+    
     file_data = file.read()
     
-    # 上传到Supabase Storage
     upload_url = f"{SUPABASE_URL}/storage/v1/object/images/{filename}"
     headers_api = {
         "apikey": SUPABASE_KEY,
@@ -201,7 +207,6 @@ def upload_image():
         return jsonify({"ok": True, "url": public_url})
     else:
         return jsonify({"ok": False, "error": r.text}), 500
-
 @app.route("/api/images", methods=["GET"])
 def get_images():
     list_url = f"{SUPABASE_URL}/storage/v1/object/list/images"
@@ -218,6 +223,8 @@ def get_images():
         url = f"{SUPABASE_URL}/storage/v1/object/public/images/{name}"
         result.append({"name": name, "url": url})
     return jsonify(result)
+
+
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
