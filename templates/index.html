@@ -987,6 +987,95 @@ body {
 .rank-delta.down { color: var(--red); }
 .rank-delta.same { color: var(--text3); font-weight: 500; }
 
+/* ── Weekly rankings ── */
+.weekly-wrap { padding: 12px 12px 80px; }
+.weekly-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.weekly-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.weekly-channel-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.weekly-channel-row::-webkit-scrollbar { display: none; }
+.weekly-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.weekly-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.weekly-level1 {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.weekly-level1-head {
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(79,70,229,.08), rgba(99,102,241,.03));
+}
+.weekly-level2-block {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.weekly-level2-block:last-child { border-bottom: none; }
+.weekly-level2-title {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #047857;
+  background: rgba(16,185,129,.16);
+  border: 1px solid rgba(16,185,129,.35);
+  margin-bottom: 8px;
+}
+.weekly-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.weekly-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.weekly-item-title {
+  color: var(--text);
+  font-weight: 600;
+}
+.weekly-item-id {
+  font-size: 12px;
+  color: var(--blue);
+  text-decoration: none;
+}
+.weekly-item-id:hover { text-decoration: underline; }
+
 /* ── Tab bar ── */
 .tab-bar {
   display: flex; gap: 0;
@@ -1107,6 +1196,7 @@ body {
   .media-wrap { padding: 16px 24px 60px; }
   .image-bed-wrap { padding: 16px 24px 60px; }
   .rank-wrap { padding: 16px 24px 60px; }
+  .weekly-wrap { padding: 16px 24px 60px; }
   .bookmark-wrap { padding: 16px 24px 60px; }
   .bookmark-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 }
@@ -1147,6 +1237,7 @@ body {
     <button class="tab-btn" id="tab-media" onclick="switchTab('media')">🎬 素材库</button>
     <button class="tab-btn" id="tab-images" onclick="switchTab('images')">🖼️ 图床</button>
     <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">🏆 千字收益榜</button>
+    <button class="tab-btn" id="tab-weekly" onclick="switchTab('weekly')">📅 周榜</button>
     <button class="tab-btn" id="tab-bookmarks" onclick="switchTab('bookmarks')">⭐ 收藏夹</button>
     <button class="tab-btn" id="tab-author" onclick="switchTab('author')">📊 作者数据</button>
   </div>
@@ -1315,6 +1406,20 @@ body {
   </div>
 </div>
 
+<div id="page-weekly" style="display:none">
+  <div class="weekly-wrap">
+    <div class="weekly-toolbar">
+      <div class="weekly-toolbar-left">
+        <span class="rank-label">期数</span>
+        <select id="weeklyPeriod" class="rank-date-select" onchange="onWeeklyPeriodChange()"></select>
+      </div>
+      <div class="weekly-channel-row" id="weeklyChannelRow"></div>
+    </div>
+    <div class="weekly-summary" id="weeklySummary"></div>
+    <div class="weekly-groups" id="weeklyGroups"></div>
+  </div>
+</div>
+
 <div class="modal-overlay media-note-modal" id="mediaNoteModal">
   <div class="modal-box">
     <div class="modal-head">
@@ -1405,6 +1510,11 @@ let allRankings = [];
 let rankingDates = [];
 let selectedRankingDate = '';
 let filteredRankings = [];
+let weeklyPeriods = [];
+let selectedWeeklyPeriod = '';
+let selectedWeeklyChannel = '全部';
+let weeklyRows = [];
+const WEEKLY_CHANNEL_OPTIONS = ['全部', '现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
 const BOOKMARK_PRESET_TAGS = [
   '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
   '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
@@ -1451,6 +1561,8 @@ async function init() {
     allImages = normalizeImageList(await imagesRes.json());
     allRankings = normalizeRankingList(await rankingsRes.json());
     initRankings();
+    buildWeeklyChannelFilters();
+    await initWeeklyRankings();
 
     notesByBook = {};
     const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
@@ -1471,6 +1583,7 @@ async function init() {
     renderBookmarks();
     renderImageBed();
     renderRankings();
+    renderWeeklyRankings();
   } catch(e) {
     document.getElementById('list').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
@@ -1482,6 +1595,8 @@ async function init() {
       '<div class="empty"><div class="empty-icon">⚠️</div>图床数据加载失败</div>';
     document.getElementById('rankingTableBody').innerHTML =
       '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+    document.getElementById('weeklyGroups').innerHTML =
+      '<div class="empty"><div class="empty-icon">⚠️</div>周榜数据加载失败</div>';
   }
   initAuthor();
 }
@@ -1796,6 +1911,7 @@ function onFilter() {
   const mediaVisible = document.getElementById('page-media').style.display !== 'none';
   const imagesVisible = document.getElementById('page-images').style.display !== 'none';
   const rankingsVisible = document.getElementById('page-rankings').style.display !== 'none';
+  const weeklyVisible = document.getElementById('page-weekly').style.display !== 'none';
   const bookmarksVisible = document.getElementById('page-bookmarks').style.display !== 'none';
   if (mediaVisible) {
     renderMedia();
@@ -1803,6 +1919,8 @@ function onFilter() {
     renderImageBed();
   } else if (rankingsVisible) {
     renderRankings();
+  } else if (weeklyVisible) {
+    renderWeeklyRankings();
   } else if (bookmarksVisible) {
     renderBookmarks();
   } else {
@@ -2244,6 +2362,7 @@ function switchTab(tab) {
   const isMedia = tab === 'media';
   const isImages = tab === 'images';
   const isRankings = tab === 'rankings';
+  const isWeekly = tab === 'weekly';
   const isBookmarks = tab === 'bookmarks';
   const isAuthor = tab === 'author';
   const filterRowEl = document.getElementById('filterRow');
@@ -2253,6 +2372,7 @@ function switchTab(tab) {
   document.getElementById('page-media').style.display = isMedia ? '' : 'none';
   document.getElementById('page-images').style.display = isImages ? '' : 'none';
   document.getElementById('page-rankings').style.display = isRankings ? '' : 'none';
+  document.getElementById('page-weekly').style.display = isWeekly ? '' : 'none';
   document.getElementById('page-bookmarks').style.display = isBookmarks ? '' : 'none';
   document.getElementById('page-author').style.display = isAuthor ? '' : 'none';
   filterRowEl.style.display = isBooks ? '' : 'none';
@@ -2272,6 +2392,9 @@ function switchTab(tab) {
   } else if (isRankings) {
     renderRankings();
     stats.textContent = `${filteredRankings.length || 0} 条上榜记录`;
+  } else if (isWeekly) {
+    renderWeeklyRankings();
+    stats.textContent = `${weeklyRows.length || 0} 条周榜记录`;
   } else if (isBookmarks) {
     renderBookmarks();
     stats.textContent = `${filteredBookmarks.length || allBookmarks.length || 0} 条收藏`;
@@ -2901,6 +3024,203 @@ function renderRankings() {
 
   if (document.getElementById('page-rankings').style.display !== 'none') {
     stats.textContent = `${enriched.length} 条上榜记录`; 
+  }
+}
+
+function buildWeeklyChannelFilters() {
+  const row = document.getElementById('weeklyChannelRow');
+  if (!row) return;
+  row.innerHTML = WEEKLY_CHANNEL_OPTIONS.map(channel => {
+    const active = channel === selectedWeeklyChannel;
+    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-channel="${channel}" onclick="setWeeklyChannel('${channel}')">${channel}</button>`;
+  }).join('');
+}
+
+function normalizeWeeklyRows(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => {
+    const title = String(item.title || item.book_name || '').trim();
+    const level1 = String(item.level1 || '未分组').trim();
+    const level2 = String(item.level2 || '其他').trim();
+    const novelIdRaw = item.work_id || item.novel_id || item.novelid || item.id || '';
+    const novelId = String(novelIdRaw || '').trim();
+    const channel = String(item.channel || selectedWeeklyChannel || '未知').trim();
+    return {
+      title: title || '未命名作品',
+      level1: level1 || '未分组',
+      level2: level2 || '其他',
+      novelId,
+      channel: channel || '未知',
+    };
+  });
+}
+
+async function initWeeklyRankings() {
+  try {
+    const res = await fetch('/api/weekly_rankings/periods');
+    const payload = await res.json();
+    const periods = Array.isArray(payload) ? payload : [];
+
+    weeklyPeriods = periods
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    selectedWeeklyPeriod = weeklyPeriods.length ? weeklyPeriods[weeklyPeriods.length - 1] : '';
+    buildWeeklyPeriodSelector();
+
+    if (selectedWeeklyPeriod) {
+      await fetchWeeklyRankings();
+    }
+  } catch (e) {
+    weeklyPeriods = [];
+    selectedWeeklyPeriod = '';
+    buildWeeklyPeriodSelector();
+  }
+}
+
+function buildWeeklyPeriodSelector() {
+  const select = document.getElementById('weeklyPeriod');
+  if (!select) return;
+
+  if (!weeklyPeriods.length) {
+    select.innerHTML = '<option value="">暂无期数</option>';
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  select.innerHTML = weeklyPeriods
+    .slice()
+    .reverse()
+    .map(period => `<option value="${period}" ${period === selectedWeeklyPeriod ? 'selected' : ''}>${period}</option>`)
+    .join('');
+}
+
+async function fetchWeeklyRankings() {
+  if (!selectedWeeklyPeriod) {
+    weeklyRows = [];
+    renderWeeklyRankings();
+    return;
+  }
+
+  const params = new URLSearchParams();
+  params.set('period', selectedWeeklyPeriod);
+  params.set('channel', selectedWeeklyChannel);
+
+  let res = await fetch(`/api/weekly_rankings?${params.toString()}`);
+  if (!res.ok && selectedWeeklyChannel === '全部') {
+    const fallback = new URLSearchParams();
+    fallback.set('period', selectedWeeklyPeriod);
+    fallback.set('channel', '');
+    res = await fetch(`/api/weekly_rankings?${fallback.toString()}`);
+  }
+
+  const payload = await res.json().catch(() => []);
+  weeklyRows = normalizeWeeklyRows(payload);
+  renderWeeklyRankings();
+}
+
+async function onWeeklyPeriodChange() {
+  const select = document.getElementById('weeklyPeriod');
+  const next = select ? String(select.value || '').trim() : '';
+  if (!weeklyPeriods.includes(next)) return;
+  selectedWeeklyPeriod = next;
+  await fetchWeeklyRankings();
+}
+
+async function setWeeklyChannel(channel) {
+  selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : '全部';
+  buildWeeklyChannelFilters();
+  await fetchWeeklyRankings();
+}
+
+function weeklyIdLink(novelId) {
+  const id = String(novelId || '').trim();
+  if (!id) return '<span class="rank-author">ID: -</span>';
+  const safeId = escHtml(id);
+  return `<a class="weekly-item-id" href="https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(id)}" target="_blank" rel="noopener">ID: ${safeId}</a>`;
+}
+
+function renderWeeklySummary() {
+  const box = document.getElementById('weeklySummary');
+  if (!box) return;
+
+  const channelMap = {};
+  weeklyRows.forEach(item => {
+    const key = item.channel || '未知';
+    channelMap[key] = (channelMap[key] || 0) + 1;
+  });
+
+  const channelText = Object.keys(channelMap).length
+    ? Object.keys(channelMap).sort((a, b) => a.localeCompare(b, 'zh-CN')).map(key => `${escHtml(key)} ${channelMap[key]}`).join(' · ')
+    : '-';
+
+  box.innerHTML = `
+    <div class="summary-card">
+      <div class="summary-label">本期总书目数量</div>
+      <div class="summary-value">${weeklyRows.length}</div>
+    </div>
+    <div class="summary-card" style="grid-column: 1 / -1;">
+      <div class="summary-label">各频道数量</div>
+      <div class="summary-value sm">${channelText}</div>
+    </div>
+  `;
+}
+
+function renderWeeklyRankings() {
+  const wrap = document.getElementById('weeklyGroups');
+  const stats = document.getElementById('stats');
+  if (!wrap) return;
+
+  renderWeeklySummary();
+
+  if (!weeklyRows.length) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-icon">📅</div>该条件下暂无周榜数据</div>';
+    if (document.getElementById('page-weekly').style.display !== 'none') {
+      stats.textContent = '0 条周榜记录';
+    }
+    return;
+  }
+
+  const grouped = {};
+  weeklyRows.forEach(item => {
+    if (!grouped[item.level1]) grouped[item.level1] = {};
+    if (!grouped[item.level1][item.level2]) grouped[item.level1][item.level2] = [];
+    grouped[item.level1][item.level2].push(item);
+  });
+
+  const level1Keys = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  wrap.innerHTML = level1Keys.map(level1 => {
+    const level2Map = grouped[level1];
+    const level2Keys = Object.keys(level2Map).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const level2Html = level2Keys.map(level2 => {
+      const rows = level2Map[level2];
+      return `
+        <div class="weekly-level2-block">
+          <div class="weekly-level2-title">${escHtml(level2)}</div>
+          <div class="weekly-item-list">
+            ${rows.map(row => `
+              <div class="weekly-item">
+                <span class="weekly-item-title">${escHtml(row.title)}</span>
+                ${weeklyIdLink(row.novelId)}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <section class="weekly-level1">
+        <div class="weekly-level1-head">${escHtml(level1)}</div>
+        ${level2Html}
+      </section>
+    `;
+  }).join('');
+
+  if (document.getElementById('page-weekly').style.display !== 'none') {
+    stats.textContent = `${weeklyRows.length} 条周榜记录`;
   }
 }
 

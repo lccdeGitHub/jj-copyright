@@ -234,7 +234,29 @@ def get_rankings():
         params["rank_date"] = f"eq.{date}"
     result = supabase_get("rankings", params)
     return jsonify(result if isinstance(result, list) else [])
-    
+
+@app.route("/api/weekly_rankings", methods=["GET"])
+def get_weekly_rankings():
+    period = request.args.get("period", "")
+    channel = request.args.get("channel", "")
+    params = {}
+    if period:
+        params["period"] = f"eq.{period}"
+    if channel:
+        params["channel"] = f"eq.{channel}"
+    result = supabase_get("weekly_rankings", params)
+    return jsonify(result if isinstance(result, list) else [])
+
+@app.route("/api/weekly_rankings/periods", methods=["GET"])
+def get_weekly_periods():
+    # 获取所有有数据的期数
+    result = supabase_get("weekly_rankings", {"select": "period"})
+    if isinstance(result, list):
+        periods = list(set([r["period"] for r in result if r.get("period")]))
+        periods.sort(reverse=True)
+        return jsonify(periods)
+    return jsonify([])
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
