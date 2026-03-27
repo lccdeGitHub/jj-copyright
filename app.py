@@ -181,32 +181,34 @@ def delete_bookmark(bookmark_id):
 
 @app.route("/api/upload", methods=["POST"])
 def upload_image():
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "no file"}), 400
-    
-    file = request.files["file"]
-    
-    # 清理文件名，只保留英文数字和后缀
-    ext = file.filename.rsplit(".", 1)[-1].lower()
-    filename = f"{int(time.time())}_{re.sub(r'[^a-zA-Z0-9]', '', file.filename.rsplit('.', 1)[0])}.{ext}"
-    if not filename.replace(f".{ext}", ""):
-        filename = f"{int(time.time())}.{ext}"
-    
-    file_data = file.read()
-    
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/images/{filename}"
-    headers_api = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": file.content_type,
-    }
-    r = req.post(upload_url, headers=headers_api, data=file_data)
-    
-    if r.status_code in (200, 201):
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/images/{filename}"
-        return jsonify({"ok": True, "url": public_url})
-    else:
-        return jsonify({"ok": False, "error": r.text}), 500
+    try:
+        if "file" not in request.files:
+            return jsonify({"ok": False, "error": "no file"}), 400
+        
+        file = request.files["file"]
+        ext = file.filename.rsplit(".", 1)[-1].lower()
+        filename = f"{int(time.time())}_{re.sub(r'[^a-zA-Z0-9]', '', file.filename.rsplit('.', 1)[0])}.{ext}"
+        if not filename.replace(f".{ext}", ""):
+            filename = f"{int(time.time())}.{ext}"
+        
+        file_data = file.read()
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/images/{filename}"
+        headers_api = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": file.content_type,
+        }
+        r = req.post(upload_url, headers=headers_api, data=file_data, verify=False)
+        
+        if r.status_code in (200, 201):
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/images/{filename}"
+            return jsonify({"ok": True, "url": public_url})
+        else:
+            return jsonify({"ok": False, "error": r.text}), 500
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"ok": False, "error": str(e)}), 500
 @app.route("/api/images", methods=["GET"])
 def get_images():
     list_url = f"{SUPABASE_URL}/storage/v1/object/list/images"
