@@ -4,7 +4,7 @@ import os
 import requests as req
 import base64
 import time
-
+import re
 app = Flask(__name__)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
