@@ -226,7 +226,14 @@ def get_images():
         result.append({"name": name, "url": url})
     return jsonify(result)
 
-
+@app.route("/api/rankings", methods=["GET"])
+def get_rankings():
+    date = request.args.get("date", "")
+    params = {}
+    if date:
+        params["rank_date"] = f"eq.{date}"
+    result = supabase_get("rankings", params)
+    return jsonify(result if isinstance(result, list) else [])
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
