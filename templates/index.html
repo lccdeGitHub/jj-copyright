@@ -1524,6 +1524,7 @@ let selectedWeeklyPeriod = '';
 let selectedWeeklyChannel = '现言';
 let selectedWeeklyLevel2 = '全部榜单';
 let weeklyRows = [];
+let weeklyLevel2Cache = {};
 const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
 const WEEKLY_LEVEL2_OPTIONS = {
   '现言': [
@@ -3065,14 +3066,43 @@ function buildWeeklyLevel2Filters() {
   const row = document.getElementById('weeklyLevel2Row');
   if (!row) return;
 
-  const options = WEEKLY_LEVEL2_OPTIONS[selectedWeeklyChannel] || [];
+  const options = getWeeklyLevel2OptionsForChannel(selectedWeeklyChannel);
   const merged = ['全部榜单', ...options];
   if (!merged.includes(selectedWeeklyLevel2)) selectedWeeklyLevel2 = '全部榜单';
 
   row.innerHTML = merged.map(level2 => {
     const active = level2 === selectedWeeklyLevel2;
-    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-level2="${escHtml(level2)}" onclick="setWeeklyLevel2('${level2.replace(/'/g, "\\'")}')">${level2}</button>`;
+    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-level2="${level2.replace(/"/g, '&quot;')}" onclick="setWeeklyLevel2('${level2.replace(/'/g, "\\'")}')">${level2}</button>`;
   }).join('');
+}
+
+function getWeeklyLevel2OptionsForChannel(channel) {
+  const base = Array.isArray(WEEKLY_LEVEL2_OPTIONS[channel]) ? WEEKLY_LEVEL2_OPTIONS[channel] : [];
+  const dyn = Array.isArray(weeklyLevel2Cache[channel]) ? weeklyLevel2Cache[channel] : [];
+  return Array.from(new Set([...base, ...dyn]))
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+}
+
+async function ensureWeeklyLevel2Options(channel) {
+  const target = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : '';
+  if (!target) return;
+  if (Array.isArray(weeklyLevel2Cache[target]) && weeklyLevel2Cache[target].length > 0) return;
+
+  try {
+    const params = new URLSearchParams();
+    params.set('channel', target);
+    const res = await fetch(`/api/weekly_rankings?${params.toString()}`);
+    const payload = await res.json();
+    const rows = Array.isArray(payload) ? payload : [];
+    const levels = rows
+      .map(item => String(item && item.level2 ? item.level2 : '').trim())
+      .filter(Boolean);
+    weeklyLevel2Cache[target] = Array.from(new Set(levels));
+  } catch (e) {
+    weeklyLevel2Cache[target] = weeklyLevel2Cache[target] || [];
+  }
 }
 
 function normalizeWeeklyRows(list) {
@@ -3099,6 +3129,7 @@ async function initWeeklyRankings() {
     if (!WEEKLY_CHANNEL_OPTIONS.includes(selectedWeeklyChannel)) {
       selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS[0] || '现言';
     }
+    await ensureWeeklyLevel2Options(selectedWeeklyChannel);
     buildWeeklyChannelFilters();
     buildWeeklyLevel2Filters();
 
@@ -3157,6 +3188,9 @@ async function fetchWeeklyRankings() {
 
   const payload = await res.json().catch(() => []);
   weeklyRows = normalizeWeeklyRows(payload);
+  const dynLevels = Array.from(new Set(weeklyRows.map(item => String(item.level2 || '').trim()).filter(Boolean)));
+  weeklyLevel2Cache[selectedWeeklyChannel] = Array.from(new Set([...(weeklyLevel2Cache[selectedWeeklyChannel] || []), ...dynLevels]));
+  buildWeeklyLevel2Filters();
   renderWeeklyRankings();
 }
 
@@ -3171,6 +3205,7 @@ async function onWeeklyPeriodChange() {
 async function setWeeklyChannel(channel) {
   selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : WEEKLY_CHANNEL_OPTIONS[0];
   selectedWeeklyLevel2 = '全部榜单';
+  await ensureWeeklyLevel2Options(selectedWeeklyChannel);
   buildWeeklyChannelFilters();
   buildWeeklyLevel2Filters();
   await fetchWeeklyRankings();
