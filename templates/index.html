@@ -1014,7 +1014,10 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.weekly-channel-row::-webkit-scrollbar { display: none; }
 .weekly-level2-row {
   display: flex;
   align-items: center;
@@ -1022,9 +1025,13 @@ body {
   padding-bottom: 2px;
   margin-bottom: 10px;
 }
-.weekly-select {
-  min-width: 180px;
-  padding: 7px 10px;
+.weekly-combobox {
+  position: relative;
+  width: 100%;
+}
+.weekly-combobox-input {
+  width: 100%;
+  padding: 7px 36px 7px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg3);
@@ -1032,9 +1039,56 @@ body {
   font-size: 13px;
   font-family: inherit;
 }
-.weekly-select:focus {
+.weekly-combobox-input:focus {
   outline: none;
   border-color: var(--accent2);
+}
+.weekly-combobox-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 12px;
+  pointer-events: none;
+}
+.weekly-combobox-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 34px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.weekly-combobox-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+.weekly-combobox-option {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 9px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.weekly-combobox-option:hover,
+.weekly-combobox-option.active {
+  background: var(--bg3);
 }
 .weekly-summary {
   display: grid;
@@ -1539,27 +1593,11 @@ let filteredRankings = [];
 let weeklyPeriods = [];
 let selectedWeeklyPeriod = '';
 let selectedWeeklyChannel = '现言';
+let selectedWeeklyLevel2 = '全部榜单';
 let weeklyLevel2Query = '';
+let weeklyComboboxOpen = false;
 let weeklyRows = [];
-let weeklyLevel2Cache = {};
 const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
-const WEEKLY_LEVEL2_OPTIONS = {
-  '现言': [
-    '分类完结封推-穿书攻略',
-    '分类完结封推-穿越时空',
-    '分类完结封推-打脸爽文',
-    '分类完结封推-都市异闻',
-    '分类完结封推-豪门总裁',
-    '分类推荐',
-    '编辑推荐',
-    'app推荐',
-  ],
-  '古言': [],
-  '纯爱': [],
-  '衍生': [],
-  '混合': [],
-  '黑名单': [],
-};
 const BOOKMARK_PRESET_TAGS = [
   '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
   '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
@@ -2385,6 +2423,10 @@ document.addEventListener('click', e => {
     document.querySelectorAll('.filter-panel').forEach(p => p.classList.remove('open'));
     activePanel = null;
   }
+
+  if (!e.target.closest('#weeklyLevel2Combobox')) {
+    closeWeeklyLevel2Dropdown();
+  }
 });
 
 // Modal: close on overlay backdrop click
@@ -3086,65 +3128,110 @@ function buildWeeklyChannelFilters() {
   const row = document.getElementById('weeklyChannelRow');
   if (!row) return;
 
-  row.innerHTML = `
-    <span class="rank-label">频道</span>
-    <select id="weeklyChannelSelect" class="weekly-select" onchange="setWeeklyChannel(this.value)">
-      ${WEEKLY_CHANNEL_OPTIONS.map(channel => `<option value="${channel}" ${channel === selectedWeeklyChannel ? 'selected' : ''}>${channel}</option>`).join('')}
-    </select>
-  `;
+  row.innerHTML = WEEKLY_CHANNEL_OPTIONS.map(channel => {
+    const active = channel === selectedWeeklyChannel;
+    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-channel="${channel}" onclick="setWeeklyChannel('${channel}')">${channel}</button>`;
+  }).join('');
 }
 
 function buildWeeklyLevel2Filters() {
   const row = document.getElementById('weeklyLevel2Row');
   if (!row) return;
 
-  const options = getWeeklyLevel2OptionsForChannel(selectedWeeklyChannel);
-  const listId = 'weeklyLevel2SuggestionList';
+  const visibleOptions = getFilteredWeeklyLevel2Options();
+  const displayValue = selectedWeeklyLevel2 && selectedWeeklyLevel2 !== '全部榜单'
+    ? selectedWeeklyLevel2
+    : weeklyLevel2Query;
 
   row.innerHTML = `
-    <span class="rank-label">榜单分类</span>
-    <input
-      id="weeklyLevel2Input"
-      class="weekly-select"
-      type="text"
-      placeholder="搜索榜单分类..."
-      value="${escHtml(weeklyLevel2Query)}"
-      list="${listId}"
-      oninput="onWeeklyLevel2Input(this.value)"
-    >
-    <datalist id="${listId}">
-      ${options.map(level2 => `<option value="${escHtml(level2)}"></option>`).join('')}
-    </datalist>
+    <div class="weekly-combobox" id="weeklyLevel2Combobox">
+      <input
+        id="weeklyLevel2Input"
+        class="weekly-combobox-input"
+        type="text"
+        placeholder="搜索榜单分类..."
+        value="${escHtml(displayValue)}"
+        autocomplete="off"
+        onclick="openWeeklyLevel2Dropdown()"
+        oninput="onWeeklyLevel2Input(this.value)"
+      >
+      <button type="button" class="weekly-combobox-btn" onclick="toggleWeeklyLevel2Dropdown(event)" aria-label="切换榜单分类下拉">
+        <span class="weekly-combobox-arrow">▾</span>
+      </button>
+      ${weeklyComboboxOpen ? `
+      <div class="weekly-combobox-list" id="weeklyLevel2List">
+        ${visibleOptions.length
+          ? visibleOptions.map(level2 => {
+              const active = selectedWeeklyLevel2 === level2;
+              return `<button type="button" class="weekly-combobox-option ${active ? 'active' : ''}" onclick="selectWeeklyLevel2Option('${level2.replace(/'/g, "\\'")}')">${escHtml(level2)}</button>`;
+            }).join('')
+          : '<div class="weekly-combobox-option" style="cursor:default;color:var(--text3)">无匹配榜单分类</div>'}
+      </div>
+      ` : ''}
+    </div>
   `;
+
+  const input = document.getElementById('weeklyLevel2Input');
+  if (input && document.activeElement !== input && weeklyComboboxOpen) {
+    input.focus();
+  }
 }
 
-function getWeeklyLevel2OptionsForChannel(channel) {
-  const base = Array.isArray(WEEKLY_LEVEL2_OPTIONS[channel]) ? WEEKLY_LEVEL2_OPTIONS[channel] : [];
-  const dyn = Array.isArray(weeklyLevel2Cache[channel]) ? weeklyLevel2Cache[channel] : [];
-  return Array.from(new Set([...base, ...dyn]))
+function getWeeklyLevel2OptionsForCurrentRows() {
+  const dyn = weeklyRows.map(item => String(item.level2 || '').trim()).filter(Boolean);
+  return Array.from(new Set(dyn))
     .map(item => String(item || '').trim())
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
-async function ensureWeeklyLevel2Options(channel) {
-  const target = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : '';
-  if (!target) return;
-  if (Array.isArray(weeklyLevel2Cache[target]) && weeklyLevel2Cache[target].length > 0) return;
+function getFilteredWeeklyLevel2Options() {
+  const options = ['全部榜单', ...getWeeklyLevel2OptionsForCurrentRows()];
+  const q = String(weeklyLevel2Query || '').trim().toLowerCase();
+  if (!q) return options;
+  return options.filter(level2 => String(level2 || '').toLowerCase().includes(q));
+}
 
-  try {
-    const params = new URLSearchParams();
-    params.set('channel', target);
-    const res = await fetch(`/api/weekly_rankings?${params.toString()}`);
-    const payload = await res.json();
-    const rows = Array.isArray(payload) ? payload : [];
-    const levels = rows
-      .map(item => String(item && item.level2 ? item.level2 : '').trim())
-      .filter(Boolean);
-    weeklyLevel2Cache[target] = Array.from(new Set(levels));
-  } catch (e) {
-    weeklyLevel2Cache[target] = weeklyLevel2Cache[target] || [];
+function openWeeklyLevel2Dropdown() {
+  weeklyComboboxOpen = true;
+  buildWeeklyLevel2Filters();
+}
+
+function closeWeeklyLevel2Dropdown() {
+  if (!weeklyComboboxOpen) return;
+  weeklyComboboxOpen = false;
+  buildWeeklyLevel2Filters();
+}
+
+function toggleWeeklyLevel2Dropdown(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
   }
+  weeklyComboboxOpen = !weeklyComboboxOpen;
+  buildWeeklyLevel2Filters();
+}
+
+function onWeeklyLevel2Input(value) {
+  weeklyLevel2Query = String(value || '').trim();
+  selectedWeeklyLevel2 = '全部榜单';
+  weeklyComboboxOpen = true;
+  buildWeeklyLevel2Filters();
+  renderWeeklyRankings();
+}
+
+function selectWeeklyLevel2Option(level2) {
+  const val = String(level2 || '').trim();
+  if (!val || val === '全部榜单') {
+    selectedWeeklyLevel2 = '全部榜单';
+    weeklyLevel2Query = '';
+  } else {
+    selectedWeeklyLevel2 = val;
+    weeklyLevel2Query = val;
+  }
+  weeklyComboboxOpen = false;
+  buildWeeklyLevel2Filters();
+  renderWeeklyRankings();
 }
 
 function normalizeWeeklyRows(list) {
@@ -3171,7 +3258,6 @@ async function initWeeklyRankings() {
     if (!WEEKLY_CHANNEL_OPTIONS.includes(selectedWeeklyChannel)) {
       selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS[0] || '现言';
     }
-    await ensureWeeklyLevel2Options(selectedWeeklyChannel);
     buildWeeklyChannelFilters();
     buildWeeklyLevel2Filters();
 
@@ -3230,8 +3316,6 @@ async function fetchWeeklyRankings() {
 
   const payload = await res.json().catch(() => []);
   weeklyRows = normalizeWeeklyRows(payload);
-  const dynLevels = Array.from(new Set(weeklyRows.map(item => String(item.level2 || '').trim()).filter(Boolean)));
-  weeklyLevel2Cache[selectedWeeklyChannel] = Array.from(new Set([...(weeklyLevel2Cache[selectedWeeklyChannel] || []), ...dynLevels]));
   buildWeeklyLevel2Filters();
   renderWeeklyRankings();
 }
@@ -3246,16 +3330,12 @@ async function onWeeklyPeriodChange() {
 
 async function setWeeklyChannel(channel) {
   selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : WEEKLY_CHANNEL_OPTIONS[0];
+  selectedWeeklyLevel2 = '全部榜单';
   weeklyLevel2Query = '';
-  await ensureWeeklyLevel2Options(selectedWeeklyChannel);
+  weeklyComboboxOpen = false;
   buildWeeklyChannelFilters();
   buildWeeklyLevel2Filters();
   await fetchWeeklyRankings();
-}
-
-function onWeeklyLevel2Input(value) {
-  weeklyLevel2Query = String(value || '').trim();
-  renderWeeklyRankings();
 }
 
 function weeklyIdLink(novelId) {
@@ -3297,10 +3377,15 @@ function renderWeeklyRankings() {
   const stats = document.getElementById('stats');
   if (!wrap) return;
 
-  const query = String(weeklyLevel2Query || '').trim().toLowerCase();
-  const visibleRows = !query
-    ? weeklyRows
-    : weeklyRows.filter(item => String(item.level2 || '').toLowerCase().includes(query));
+  let visibleRows = weeklyRows;
+  if (selectedWeeklyLevel2 && selectedWeeklyLevel2 !== '全部榜单') {
+    visibleRows = weeklyRows.filter(item => String(item.level2 || '').trim() === selectedWeeklyLevel2);
+  } else {
+    const query = String(weeklyLevel2Query || '').trim().toLowerCase();
+    if (query) {
+      visibleRows = weeklyRows.filter(item => String(item.level2 || '').toLowerCase().includes(query));
+    }
+  }
 
   renderWeeklySummary(visibleRows);
 
