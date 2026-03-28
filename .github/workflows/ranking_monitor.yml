@@ -2,24 +2,36 @@ name: 每日收益榜抓取
 
 on:
   schedule:
-    - cron: '5 16 * * *'  # UTC 16:05 = 北京时间 00:05
-  workflow_dispatch:  # 也可以手动触发
+    - cron: '59 15 * * *'  # 北京时间23:59 存快照
+    - cron: '5 16 * * *'   # 北京时间00:05 抓今日+更新昨日
+  workflow_dispatch:
 
 jobs:
-  crawl:
+  snapshot:
+    if: github.event.schedule == '59 15 * * *'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: 安装Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      - run: pip install requests beautifulsoup4 lxml
+      - name: 存快照
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python jj_ranking_snapshot.py
 
-      - name: 安装依赖
-        run: pip install requests beautifulsoup4 lxml
-
-      - name: 运行爬虫
+  crawl:
+    if: github.event.schedule == '5 16 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install requests beautifulsoup4 lxml
+      - name: 抓今日榜单
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
