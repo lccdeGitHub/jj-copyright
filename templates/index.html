@@ -3053,12 +3053,35 @@ function rankingFavGrowthHtml(item) {
 function rankingTitleLink(item) {
   if (!item || !item.title) return '-';
   const title = String(item.title || '').trim();
-  const novelId = String(item.novel_id || '').trim();
+  const novelId = resolveRankingNovelId(item);
   if (!novelId) {
     return escHtml(title);
   }
   const href = `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`;
   return `<a class="rank-title-link" href="${href}" target="_blank" rel="noopener">${escHtml(title)}</a>`;
+}
+
+function extractNovelIdFromJjLink(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  const qMatch = raw.match(/[?&]novelid=(\d+)/i);
+  if (qMatch && qMatch[1]) return qMatch[1];
+  const pathMatch = raw.match(/\/onebook\.php\?novelid=(\d+)/i);
+  if (pathMatch && pathMatch[1]) return pathMatch[1];
+  return '';
+}
+
+function resolveRankingNovelId(item) {
+  const direct = String(item && item.novel_id ? item.novel_id : '').trim();
+  if (direct) return direct;
+
+  const title = String(item && item.title ? item.title : '').trim();
+  if (!title || !Array.isArray(allBooks)) return '';
+
+  const matchedBook = allBooks.find(book => String(book['书名'] || '').trim() === title);
+  if (!matchedBook) return '';
+
+  return extractNovelIdFromJjLink(matchedBook['晋江链接']);
 }
 
 function renderRankings() {
