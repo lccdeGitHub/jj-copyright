@@ -237,13 +237,13 @@ def get_ranking_dates():
 
 @app.route("/api/rankings", methods=["GET"])
 def get_rankings():
-    date = request.args.get("date", "")
+    rank_date = request.args.get("date", "")
     params = {}
-    if date:
-        params["rank_date"] = f"eq.{date}"
+    if rank_date:
+        params["rank_date"] = f"eq.{rank_date}"
+    params["order"] = "rank_num.asc"
     result = supabase_get("rankings", params)
     return jsonify(result if isinstance(result, list) else [])
-
 @app.route("/api/weekly_rankings", methods=["GET"])
 def get_weekly_rankings():
     period = request.args.get("period", "")

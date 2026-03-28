@@ -1010,6 +1010,15 @@ body {
   scrollbar-width: none;
 }
 .weekly-channel-row::-webkit-scrollbar { display: none; }
+.weekly-level2-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-bottom: 10px;
+}
+.weekly-level2-row::-webkit-scrollbar { display: none; }
 .weekly-summary {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -1414,6 +1423,7 @@ body {
       </div>
       <div class="weekly-channel-row" id="weeklyChannelRow"></div>
     </div>
+    <div class="weekly-level2-row" id="weeklyLevel2Row"></div>
     <div class="weekly-summary" id="weeklySummary"></div>
     <div class="weekly-groups" id="weeklyGroups"></div>
   </div>
@@ -1511,9 +1521,27 @@ let selectedRankingDate = '';
 let filteredRankings = [];
 let weeklyPeriods = [];
 let selectedWeeklyPeriod = '';
-let selectedWeeklyChannel = '全部';
+let selectedWeeklyChannel = '现言';
+let selectedWeeklyLevel2 = '全部榜单';
 let weeklyRows = [];
-const WEEKLY_CHANNEL_OPTIONS = ['全部', '现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
+const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
+const WEEKLY_LEVEL2_OPTIONS = {
+  '现言': [
+    '分类完结封推-穿书攻略',
+    '分类完结封推-穿越时空',
+    '分类完结封推-打脸爽文',
+    '分类完结封推-都市异闻',
+    '分类完结封推-豪门总裁',
+    '分类推荐',
+    '编辑推荐',
+    'app推荐',
+  ],
+  '古言': [],
+  '纯爱': [],
+  '衍生': [],
+  '混合': [],
+  '黑名单': [],
+};
 const BOOKMARK_PRESET_TAGS = [
   '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
   '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
@@ -1559,6 +1587,7 @@ async function init() {
     allImages = normalizeImageList(await imagesRes.json());
     await initRankings();
     buildWeeklyChannelFilters();
+    buildWeeklyLevel2Filters();
     await initWeeklyRankings();
 
     notesByBook = {};
@@ -3032,6 +3061,20 @@ function buildWeeklyChannelFilters() {
   }).join('');
 }
 
+function buildWeeklyLevel2Filters() {
+  const row = document.getElementById('weeklyLevel2Row');
+  if (!row) return;
+
+  const options = WEEKLY_LEVEL2_OPTIONS[selectedWeeklyChannel] || [];
+  const merged = ['全部榜单', ...options];
+  if (!merged.includes(selectedWeeklyLevel2)) selectedWeeklyLevel2 = '全部榜单';
+
+  row.innerHTML = merged.map(level2 => {
+    const active = level2 === selectedWeeklyLevel2;
+    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-level2="${escHtml(level2)}" onclick="setWeeklyLevel2('${level2.replace(/'/g, "\\'")}')">${level2}</button>`;
+  }).join('');
+}
+
 function normalizeWeeklyRows(list) {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -3053,6 +3096,12 @@ function normalizeWeeklyRows(list) {
 
 async function initWeeklyRankings() {
   try {
+    if (!WEEKLY_CHANNEL_OPTIONS.includes(selectedWeeklyChannel)) {
+      selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS[0] || '现言';
+    }
+    buildWeeklyChannelFilters();
+    buildWeeklyLevel2Filters();
+
     const res = await fetch('/api/weekly_rankings/periods');
     const payload = await res.json();
     const periods = Array.isArray(payload) ? payload : [];
@@ -3104,13 +3153,7 @@ async function fetchWeeklyRankings() {
   params.set('period', selectedWeeklyPeriod);
   params.set('channel', selectedWeeklyChannel);
 
-  let res = await fetch(`/api/weekly_rankings?${params.toString()}`);
-  if (!res.ok && selectedWeeklyChannel === '全部') {
-    const fallback = new URLSearchParams();
-    fallback.set('period', selectedWeeklyPeriod);
-    fallback.set('channel', '');
-    res = await fetch(`/api/weekly_rankings?${fallback.toString()}`);
-  }
+  const res = await fetch(`/api/weekly_rankings?${params.toString()}`);
 
   const payload = await res.json().catch(() => []);
   weeklyRows = normalizeWeeklyRows(payload);
@@ -3126,9 +3169,17 @@ async function onWeeklyPeriodChange() {
 }
 
 async function setWeeklyChannel(channel) {
-  selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : '全部';
+  selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : WEEKLY_CHANNEL_OPTIONS[0];
+  selectedWeeklyLevel2 = '全部榜单';
   buildWeeklyChannelFilters();
+  buildWeeklyLevel2Filters();
   await fetchWeeklyRankings();
+}
+
+function setWeeklyLevel2(level2) {
+  selectedWeeklyLevel2 = level2 || '全部榜单';
+  buildWeeklyLevel2Filters();
+  renderWeeklyRankings();
 }
 
 function weeklyIdLink(novelId) {
@@ -3138,12 +3189,13 @@ function weeklyIdLink(novelId) {
   return `<a class="weekly-item-id" href="https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(id)}" target="_blank" rel="noopener">ID: ${safeId}</a>`;
 }
 
-function renderWeeklySummary() {
+function renderWeeklySummary(rows) {
   const box = document.getElementById('weeklySummary');
   if (!box) return;
+  const source = Array.isArray(rows) ? rows : weeklyRows;
 
   const channelMap = {};
-  weeklyRows.forEach(item => {
+  source.forEach(item => {
     const key = item.channel || '未知';
     channelMap[key] = (channelMap[key] || 0) + 1;
   });
@@ -3155,7 +3207,7 @@ function renderWeeklySummary() {
   box.innerHTML = `
     <div class="summary-card">
       <div class="summary-label">本期总书目数量</div>
-      <div class="summary-value">${weeklyRows.length}</div>
+      <div class="summary-value">${source.length}</div>
     </div>
     <div class="summary-card" style="grid-column: 1 / -1;">
       <div class="summary-label">各频道数量</div>
@@ -3169,9 +3221,13 @@ function renderWeeklyRankings() {
   const stats = document.getElementById('stats');
   if (!wrap) return;
 
-  renderWeeklySummary();
+  const visibleRows = selectedWeeklyLevel2 === '全部榜单'
+    ? weeklyRows
+    : weeklyRows.filter(item => String(item.level2 || '').trim() === selectedWeeklyLevel2);
 
-  if (!weeklyRows.length) {
+  renderWeeklySummary(visibleRows);
+
+  if (!visibleRows.length) {
     wrap.innerHTML = '<div class="empty"><div class="empty-icon">📅</div>该条件下暂无周榜数据</div>';
     if (document.getElementById('page-weekly').style.display !== 'none') {
       stats.textContent = '0 条周榜记录';
@@ -3180,7 +3236,7 @@ function renderWeeklyRankings() {
   }
 
   const grouped = {};
-  weeklyRows.forEach(item => {
+  visibleRows.forEach(item => {
     if (!grouped[item.level1]) grouped[item.level1] = {};
     if (!grouped[item.level1][item.level2]) grouped[item.level1][item.level2] = [];
     grouped[item.level1][item.level2].push(item);
@@ -3216,7 +3272,7 @@ function renderWeeklyRankings() {
   }).join('');
 
   if (document.getElementById('page-weekly').style.display !== 'none') {
-    stats.textContent = `${weeklyRows.length} 条周榜记录`;
+    stats.textContent = `${visibleRows.length} 条周榜记录`;
   }
 }
 
