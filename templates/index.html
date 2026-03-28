@@ -968,12 +968,12 @@ body {
 }
 .rank-title {
   font-weight: 600;
-  min-width: 180px;
   white-space: normal;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .rank-title-link {
-  color: var(--text);
+  color: inherit;
   text-decoration: none;
 }
 .rank-title-link:hover { text-decoration: underline; }
@@ -3053,11 +3053,10 @@ function rankingFavGrowthHtml(item) {
 function rankingTitleLink(item) {
   if (!item || !item.title) return '-';
   const title = String(item.title || '').trim();
-  const novelId = resolveRankingNovelId(item);
-  if (!novelId) {
-    return escHtml(title);
-  }
-  const href = `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`;
+  const novelId = String(item.novel_id || '').trim();
+  const href = novelId
+    ? `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`
+    : `https://s.jjwxc.net/search.php?kw=${encodeURIComponent(title)}`;
   return `<a class="rank-title-link" href="${href}" target="_blank" rel="noopener">${escHtml(title)}</a>`;
 }
 
