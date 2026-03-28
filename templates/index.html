@@ -2947,7 +2947,7 @@ function normalizeRankingList(list) {
       const favStart = Number(item.fav_start ?? item.fav_count ?? 0);
       const favGrowth = Number(item.fav_growth ?? 0);
       const favEnd = Number(item.fav_end ?? 0);
-      const novelIdRaw = item.novel_id ?? item.work_id ?? item.novelid ?? '';
+      const novelIdRaw = item.novel_id ?? item.novelId ?? item.novelID ?? item.work_id ?? item.workId ?? item.novelid ?? '';
       const title = String(item.title || '').trim();
       const author = String(item.author || '').trim();
       if (!title || !Number.isFinite(rankNum)) return null;
@@ -3054,9 +3054,10 @@ function rankingTitleLink(item) {
   if (!item || !item.title) return '-';
   const title = String(item.title || '').trim();
   const novelId = String(item.novel_id || '').trim();
-  const href = novelId
-    ? `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`
-    : `https://s.jjwxc.net/search.php?kw=${encodeURIComponent(title)}`;
+  if (!novelId) {
+    return escHtml(title);
+  }
+  const href = `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`;
   return `<a class="rank-title-link" href="${href}" target="_blank" rel="noopener">${escHtml(title)}</a>`;
 }
 
