@@ -4,6 +4,7 @@ import re
 import time
 import random
 from datetime import date
+from datetime import datetime, timezone, timedelta
 
 import os
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
@@ -114,7 +115,9 @@ def crawl_ranking():
         print(f"抓取榜单失败：{e}")
         return []
 def main():
-    today = date.today().isoformat()
+# 使用北京时间
+    beijing_tz = timezone(timedelta(hours=8))
+    today = datetime.now(beijing_tz).strftime("%Y-%m-%d")
     print(f"📅 日期：{today}")
     
     books = crawl_ranking()
