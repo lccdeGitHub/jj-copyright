@@ -1005,20 +1005,30 @@ body {
 }
 .weekly-channel-row {
   display: flex;
+  align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.weekly-channel-row::-webkit-scrollbar { display: none; }
 .weekly-level2-row {
   display: flex;
+  align-items: center;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
   padding-bottom: 2px;
   margin-bottom: 10px;
 }
-.weekly-level2-row::-webkit-scrollbar { display: none; }
+.weekly-select {
+  min-width: 180px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg3);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+}
+.weekly-select:focus {
+  outline: none;
+  border-color: var(--accent2);
+}
 .weekly-summary {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -3056,10 +3066,13 @@ function renderRankings() {
 function buildWeeklyChannelFilters() {
   const row = document.getElementById('weeklyChannelRow');
   if (!row) return;
-  row.innerHTML = WEEKLY_CHANNEL_OPTIONS.map(channel => {
-    const active = channel === selectedWeeklyChannel;
-    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-channel="${channel}" onclick="setWeeklyChannel('${channel}')">${channel}</button>`;
-  }).join('');
+
+  row.innerHTML = `
+    <span class="rank-label">频道</span>
+    <select id="weeklyChannelSelect" class="weekly-select" onchange="setWeeklyChannel(this.value)">
+      ${WEEKLY_CHANNEL_OPTIONS.map(channel => `<option value="${channel}" ${channel === selectedWeeklyChannel ? 'selected' : ''}>${channel}</option>`).join('')}
+    </select>
+  `;
 }
 
 function buildWeeklyLevel2Filters() {
@@ -3070,10 +3083,12 @@ function buildWeeklyLevel2Filters() {
   const merged = ['全部榜单', ...options];
   if (!merged.includes(selectedWeeklyLevel2)) selectedWeeklyLevel2 = '全部榜单';
 
-  row.innerHTML = merged.map(level2 => {
-    const active = level2 === selectedWeeklyLevel2;
-    return `<button class="filter-btn ${active ? 'active' : ''}" data-weekly-level2="${level2.replace(/"/g, '&quot;')}" onclick="setWeeklyLevel2('${level2.replace(/'/g, "\\'")}')">${level2}</button>`;
-  }).join('');
+  row.innerHTML = `
+    <span class="rank-label">榜单分类</span>
+    <select id="weeklyLevel2Select" class="weekly-select" onchange="setWeeklyLevel2(this.value)">
+      ${merged.map(level2 => `<option value="${escHtml(level2)}" ${level2 === selectedWeeklyLevel2 ? 'selected' : ''}>${escHtml(level2)}</option>`).join('')}
+    </select>
+  `;
 }
 
 function getWeeklyLevel2OptionsForChannel(channel) {
