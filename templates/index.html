@@ -1396,7 +1396,6 @@ body {
             <th>书名</th>
             <th>作者</th>
             <th>收藏数</th>
-            <th>排名涨幅</th>
             <th>收藏涨幅</th>
           </tr>
         </thead>
@@ -1545,13 +1544,12 @@ async function init() {
   }
 
   try {
-    const [booksRes, notesRes, mediaRes, bookmarksRes, imagesRes, rankingsRes] = await Promise.all([
+    const [booksRes, notesRes, mediaRes, bookmarksRes, imagesRes] = await Promise.all([
       fetch('/api/books'),
       fetch('/api/notes'),
       fetch('/api/media'),
       fetch('/api/bookmarks'),
       fetch('/api/images'),
-      fetch('/api/rankings'),
     ]);
 
     allBooks = await booksRes.json();
@@ -1559,8 +1557,7 @@ async function init() {
     allMedia = await mediaRes.json();
     allBookmarks = await bookmarksRes.json();
     allImages = normalizeImageList(await imagesRes.json());
-    allRankings = normalizeRankingList(await rankingsRes.json());
-    initRankings();
+    await initRankings();
     buildWeeklyChannelFilters();
     await initWeeklyRankings();
 
@@ -1594,7 +1591,7 @@ async function init() {
     document.getElementById('imageBedList').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>图床数据加载失败</div>';
     document.getElementById('rankingTableBody').innerHTML =
-      '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+      '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
     document.getElementById('weeklyGroups').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>周榜数据加载失败</div>';
   }
@@ -2857,33 +2854,44 @@ function normalizeRankingList(list) {
   if (!Array.isArray(list)) return [];
   return list
     .map(item => {
-      const rankDate = normalizeRankingDate(item.rank_date);
-      const rankNum = Number(item.rank_num);
-      const favCount = Number(item.fav_count);
+      const rankNum = Number(item.rank_num ?? item.rank ?? 0);
+      const favStart = Number(item.fav_start ?? item.fav_count ?? 0);
+      const favGrowth = Number(item.fav_growth ?? 0);
+      const favEnd = Number(item.fav_end ?? 0);
       const title = String(item.title || '').trim();
       const author = String(item.author || '').trim();
-      if (!rankDate || !title || !Number.isFinite(rankNum)) return null;
+      if (!title || !Number.isFinite(rankNum)) return null;
       return {
-        rank_date: rankDate,
         rank_num: Math.max(1, Math.round(rankNum)),
         title,
         author: author || '未知作者',
-        fav_count: Number.isFinite(favCount) ? Math.max(0, Math.round(favCount)) : 0,
+        fav_start: Number.isFinite(favStart) ? Math.max(0, Math.round(favStart)) : 0,
+        fav_growth: Number.isFinite(favGrowth) ? Math.round(favGrowth) : 0,
+        fav_end: Number.isFinite(favEnd) ? Math.max(0, Math.round(favEnd)) : 0,
       };
     })
+    .sort((a, b) => a.rank_num - b.rank_num)
     .filter(Boolean);
 }
 
-function initRankings() {
-  const today = new Date().toISOString().slice(0, 10);
-  const dateSet = new Set();
-  allRankings.forEach(item => {
-    if (item.rank_date && item.rank_date <= today) dateSet.add(item.rank_date);
-  });
+async function initRankings() {
+  try {
+    const res = await fetch('/api/rankings/dates');
+    const payload = await res.json();
+    rankingDates = (Array.isArray(payload) ? payload : [])
+      .map(item => normalizeRankingDate(item))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
 
-  rankingDates = Array.from(dateSet).sort((a, b) => a.localeCompare(b));
-  selectedRankingDate = rankingDates.length ? rankingDates[rankingDates.length - 1] : '';
-  buildRankingDateSelector();
+    selectedRankingDate = rankingDates.length ? rankingDates[rankingDates.length - 1] : '';
+    buildRankingDateSelector();
+    await fetchRankingsByDate();
+  } catch (e) {
+    rankingDates = [];
+    selectedRankingDate = '';
+    allRankings = [];
+    buildRankingDateSelector();
+  }
 }
 
 function buildRankingDateSelector() {
@@ -2904,7 +2912,7 @@ function buildRankingDateSelector() {
     .join('');
 }
 
-function onRankingDateChange() {
+async function onRankingDateChange() {
   const select = document.getElementById('rankingDate');
   const date = select ? String(select.value || '').trim() : '';
   if (!rankingDates.includes(date)) {
@@ -2912,17 +2920,25 @@ function onRankingDateChange() {
     return;
   }
   selectedRankingDate = date;
+  await fetchRankingsByDate();
   renderRankings();
 }
 
-function formatRankDelta(delta) {
-  if (delta === null || delta === undefined || delta === 0) {
-    return '<span class="rank-delta same">-</span>';
+async function fetchRankingsByDate() {
+  if (!selectedRankingDate) {
+    allRankings = [];
+    return;
   }
-  if (delta > 0) {
-    return `<span class="rank-delta up">↑${delta}</span>`;
+
+  try {
+    const params = new URLSearchParams();
+    params.set('date', selectedRankingDate);
+    const res = await fetch(`/api/rankings?${params.toString()}`);
+    const payload = await res.json();
+    allRankings = normalizeRankingList(payload);
+  } catch (e) {
+    allRankings = [];
   }
-  return `<span class="rank-delta down">↓${Math.abs(delta)}</span>`;
 }
 
 function formatFavDelta(delta) {
@@ -2935,15 +2951,12 @@ function formatFavDelta(delta) {
   return `<span class="rank-delta down">↓${fmtNum(Math.abs(delta))}</span>`;
 }
 
-function getPreviousRankingRecord(current) {
-  if (!current || !current.title) return null;
-  let prev = null;
-  allRankings.forEach(item => {
-    if (item.title !== current.title) return;
-    if (item.rank_date >= current.rank_date) return;
-    if (!prev || item.rank_date > prev.rank_date) prev = item;
-  });
-  return prev;
+function rankingFavGrowthHtml(item) {
+  if (!item) return '<span class="rank-delta same">-</span>';
+  if (Number(item.fav_end || 0) === 0) {
+    return '<span class="rank-delta same">待更新</span>';
+  }
+  return formatFavDelta(Number(item.fav_growth || 0));
 }
 
 function renderRankings() {
@@ -2953,7 +2966,7 @@ function renderRankings() {
   if (!tbody || !summary) return;
 
   if (!selectedRankingDate || !rankingDates.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
     summary.innerHTML = '<div class="summary-card"><div class="summary-label">当日上榜书目</div><div class="summary-value">0</div></div>';
     if (document.getElementById('page-rankings').style.display !== 'none') {
       stats.textContent = '0 条上榜记录';
@@ -2962,34 +2975,22 @@ function renderRankings() {
   }
 
   const q = document.getElementById('search').value.trim().toLowerCase();
-  const dayRows = allRankings
-    .filter(item => item.rank_date === selectedRankingDate)
-    .sort((a, b) => a.rank_num - b.rank_num);
+  const dayRows = allRankings;
 
   filteredRankings = dayRows.filter(item => {
     if (!q) return true;
     return item.title.toLowerCase().includes(q) || item.author.toLowerCase().includes(q);
   });
 
-  let bestRankRise = null;
   let bestFavRise = null;
   const enriched = filteredRankings.map(item => {
-    const prev = getPreviousRankingRecord(item);
-    const rankDelta = prev ? (prev.rank_num - item.rank_num) : null;
-    const favDelta = prev ? (item.fav_count - prev.fav_count) : null;
-
-    if (rankDelta !== null && rankDelta > 0) {
-      if (!bestRankRise || rankDelta > bestRankRise.delta) {
-        bestRankRise = { title: item.title, delta: rankDelta };
+    const favGrowth = Number(item.fav_growth || 0);
+    if (Number(item.fav_end || 0) > 0) {
+      if (!bestFavRise || favGrowth > bestFavRise.delta) {
+        bestFavRise = { title: item.title, delta: favGrowth };
       }
     }
-    if (favDelta !== null && favDelta > 0) {
-      if (!bestFavRise || favDelta > bestFavRise.delta) {
-        bestFavRise = { title: item.title, delta: favDelta };
-      }
-    }
-
-    return { ...item, rankDelta, favDelta };
+    return item;
   });
 
   summary.innerHTML = `
@@ -2998,26 +2999,21 @@ function renderRankings() {
       <div class="summary-value">${enriched.length}</div>
     </div>
     <div class="summary-card">
-      <div class="summary-label">排名上升最多</div>
-      <div class="summary-value sm">${bestRankRise ? `${escHtml(bestRankRise.title)} ↑${bestRankRise.delta}` : '-'}</div>
-    </div>
-    <div class="summary-card">
       <div class="summary-label">收藏涨幅最大</div>
-      <div class="summary-value sm">${bestFavRise ? `${escHtml(bestFavRise.title)} ↑${fmtNum(bestFavRise.delta)}` : '-'}</div>
+      <div class="summary-value sm">${bestFavRise ? `${escHtml(bestFavRise.title)} ${bestFavRise.delta > 0 ? '↑' : bestFavRise.delta < 0 ? '↓' : ''}${fmtNum(Math.abs(bestFavRise.delta))}` : '-'}</div>
     </div>
   `;
 
   if (!enriched.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">该日期暂无符合条件的榜单</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">该日期暂无符合条件的榜单</td></tr>';
   } else {
     tbody.innerHTML = enriched.map(item => `
       <tr>
         <td class="rank-num">#${item.rank_num}</td>
         <td class="rank-title">${escHtml(item.title)}</td>
         <td class="rank-author">${escHtml(item.author)}</td>
-        <td class="rank-fav">${fmtNum(item.fav_count)}</td>
-        <td>${formatRankDelta(item.rankDelta)}</td>
-        <td>${formatFavDelta(item.favDelta)}</td>
+        <td class="rank-fav">${fmtNum(item.fav_start)}</td>
+        <td>${rankingFavGrowthHtml(item)}</td>
       </tr>
     `).join('');
   }

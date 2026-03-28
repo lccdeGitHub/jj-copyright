@@ -226,6 +226,15 @@ def get_images():
         result.append({"name": name, "url": url})
     return jsonify(result)
 
+@app.route("/api/rankings/dates", methods=["GET"])
+def get_ranking_dates():
+    result = supabase_get("rankings", {"select": "rank_date"})
+    if isinstance(result, list):
+        dates = list(set([r["rank_date"] for r in result if r.get("rank_date")]))
+        dates.sort(reverse=True)
+        return jsonify(dates)
+    return jsonify([])
+
 @app.route("/api/rankings", methods=["GET"])
 def get_rankings():
     date = request.args.get("date", "")
