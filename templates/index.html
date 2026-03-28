@@ -2950,12 +2950,14 @@ function normalizeRankingList(list) {
       const novelIdRaw = item.novel_id ?? item.novelId ?? item.novelID ?? item.work_id ?? item.workId ?? item.novelid ?? '';
       const title = String(item.title || '').trim();
       const author = String(item.author || '').trim();
+      const bookUrl = String(item.book_url || '').trim();
       if (!title || !Number.isFinite(rankNum)) return null;
       return {
         rank_num: Math.max(1, Math.round(rankNum)),
         title,
         author: author || '未知作者',
         novel_id: String(novelIdRaw || '').trim(),
+        book_url: bookUrl,
         fav_start: Number.isFinite(favStart) ? Math.max(0, Math.round(favStart)) : 0,
         fav_growth: Number.isFinite(favGrowth) ? Math.round(favGrowth) : 0,
         fav_end: Number.isFinite(favEnd) ? Math.max(0, Math.round(favEnd)) : 0,
@@ -3053,10 +3055,13 @@ function rankingFavGrowthHtml(item) {
 function rankingTitleLink(item) {
   if (!item || !item.title) return '-';
   const title = String(item.title || '').trim();
+  const bookUrl = String(item.book_url || '').trim();
   const novelId = String(item.novel_id || '').trim();
-  const href = novelId
-    ? `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`
-    : `https://s.jjwxc.net/search.php?kw=${encodeURIComponent(title)}`;
+  const href = bookUrl
+    ? bookUrl
+    : novelId
+      ? `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`
+      : `https://s.jjwxc.net/search.php?kw=${encodeURIComponent(title)}`;
   return `<a class="rank-title-link" href="${href}" target="_blank" rel="noopener">${escHtml(title)}</a>`;
 }
 
