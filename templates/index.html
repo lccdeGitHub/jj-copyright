@@ -969,7 +969,14 @@ body {
 .rank-title {
   font-weight: 600;
   min-width: 180px;
+  white-space: normal;
+  word-break: break-word;
 }
+.rank-title-link {
+  color: var(--text);
+  text-decoration: none;
+}
+.rank-title-link:hover { text-decoration: underline; }
 .rank-author {
   color: var(--text2);
   white-space: nowrap;
@@ -1532,7 +1539,7 @@ let filteredRankings = [];
 let weeklyPeriods = [];
 let selectedWeeklyPeriod = '';
 let selectedWeeklyChannel = '现言';
-let selectedWeeklyLevel2 = '全部榜单';
+let weeklyLevel2Query = '';
 let weeklyRows = [];
 let weeklyLevel2Cache = {};
 const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
@@ -2898,6 +2905,7 @@ function normalizeRankingList(list) {
       const favStart = Number(item.fav_start ?? item.fav_count ?? 0);
       const favGrowth = Number(item.fav_growth ?? 0);
       const favEnd = Number(item.fav_end ?? 0);
+      const novelIdRaw = item.novel_id ?? item.work_id ?? item.novelid ?? '';
       const title = String(item.title || '').trim();
       const author = String(item.author || '').trim();
       if (!title || !Number.isFinite(rankNum)) return null;
@@ -2905,6 +2913,7 @@ function normalizeRankingList(list) {
         rank_num: Math.max(1, Math.round(rankNum)),
         title,
         author: author || '未知作者',
+        novel_id: String(novelIdRaw || '').trim(),
         fav_start: Number.isFinite(favStart) ? Math.max(0, Math.round(favStart)) : 0,
         fav_growth: Number.isFinite(favGrowth) ? Math.round(favGrowth) : 0,
         fav_end: Number.isFinite(favEnd) ? Math.max(0, Math.round(favEnd)) : 0,
@@ -2999,6 +3008,16 @@ function rankingFavGrowthHtml(item) {
   return formatFavDelta(Number(item.fav_growth || 0));
 }
 
+function rankingTitleLink(item) {
+  if (!item || !item.title) return '-';
+  const title = String(item.title || '').trim();
+  const novelId = String(item.novel_id || '').trim();
+  const href = novelId
+    ? `https://www.jjwxc.net/onebook.php?novelid=${encodeURIComponent(novelId)}`
+    : `https://s.jjwxc.net/search.php?kw=${encodeURIComponent(title)}`;
+  return `<a class="rank-title-link" href="${href}" target="_blank" rel="noopener">${escHtml(title)}</a>`;
+}
+
 function renderRankings() {
   const tbody = document.getElementById('rankingTableBody');
   const summary = document.getElementById('rankingSummary');
@@ -3050,7 +3069,7 @@ function renderRankings() {
     tbody.innerHTML = enriched.map(item => `
       <tr>
         <td class="rank-num">#${item.rank_num}</td>
-        <td class="rank-title">${escHtml(item.title)}</td>
+        <td class="rank-title">${rankingTitleLink(item)}</td>
         <td class="rank-author">${escHtml(item.author)}</td>
         <td class="rank-fav">${fmtNum(item.fav_start)}</td>
         <td>${rankingFavGrowthHtml(item)}</td>
@@ -3080,14 +3099,22 @@ function buildWeeklyLevel2Filters() {
   if (!row) return;
 
   const options = getWeeklyLevel2OptionsForChannel(selectedWeeklyChannel);
-  const merged = ['全部榜单', ...options];
-  if (!merged.includes(selectedWeeklyLevel2)) selectedWeeklyLevel2 = '全部榜单';
+  const listId = 'weeklyLevel2SuggestionList';
 
   row.innerHTML = `
     <span class="rank-label">榜单分类</span>
-    <select id="weeklyLevel2Select" class="weekly-select" onchange="setWeeklyLevel2(this.value)">
-      ${merged.map(level2 => `<option value="${escHtml(level2)}" ${level2 === selectedWeeklyLevel2 ? 'selected' : ''}>${escHtml(level2)}</option>`).join('')}
-    </select>
+    <input
+      id="weeklyLevel2Input"
+      class="weekly-select"
+      type="text"
+      placeholder="搜索榜单分类..."
+      value="${escHtml(weeklyLevel2Query)}"
+      list="${listId}"
+      oninput="onWeeklyLevel2Input(this.value)"
+    >
+    <datalist id="${listId}">
+      ${options.map(level2 => `<option value="${escHtml(level2)}"></option>`).join('')}
+    </datalist>
   `;
 }
 
@@ -3219,16 +3246,15 @@ async function onWeeklyPeriodChange() {
 
 async function setWeeklyChannel(channel) {
   selectedWeeklyChannel = WEEKLY_CHANNEL_OPTIONS.includes(channel) ? channel : WEEKLY_CHANNEL_OPTIONS[0];
-  selectedWeeklyLevel2 = '全部榜单';
+  weeklyLevel2Query = '';
   await ensureWeeklyLevel2Options(selectedWeeklyChannel);
   buildWeeklyChannelFilters();
   buildWeeklyLevel2Filters();
   await fetchWeeklyRankings();
 }
 
-function setWeeklyLevel2(level2) {
-  selectedWeeklyLevel2 = level2 || '全部榜单';
-  buildWeeklyLevel2Filters();
+function onWeeklyLevel2Input(value) {
+  weeklyLevel2Query = String(value || '').trim();
   renderWeeklyRankings();
 }
 
@@ -3271,9 +3297,10 @@ function renderWeeklyRankings() {
   const stats = document.getElementById('stats');
   if (!wrap) return;
 
-  const visibleRows = selectedWeeklyLevel2 === '全部榜单'
+  const query = String(weeklyLevel2Query || '').trim().toLowerCase();
+  const visibleRows = !query
     ? weeklyRows
-    : weeklyRows.filter(item => String(item.level2 || '').trim() === selectedWeeklyLevel2);
+    : weeklyRows.filter(item => String(item.level2 || '').toLowerCase().includes(query));
 
   renderWeeklySummary(visibleRows);
 
