@@ -8,7 +8,7 @@ from datetime import date
 import os
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_GzL8hTs1moo6-NP5ErzERA_yuV37UYv")
-
+from datetime import datetime, timezone, timedelta
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "zh-CN,zh;q=0.9",
@@ -114,7 +114,9 @@ def crawl_ranking():
         print(f"抓取榜单失败：{e}")
         return []
 def main():
-    today = date.today().isoformat()
+    beijing_tz = timezone(timedelta(hours=8))
+    today = datetime.now(beijing_tz).strftime("%Y-%m-%d")
+    # today = date.today().isoformat()
     print(f"📅 日期：{today}")
     
     books = crawl_ranking()
@@ -137,6 +139,8 @@ def main():
             "fav_count": fav,
             "novel_id": book["url"].rstrip("/").split("/")[-1],
             "book_url": book["url"],
+            "fav_start": fav,
+            "novel_url": book["url"],
         }
         status = supabase_insert("rankings", data)
         print(f"  写入状态：{status}")

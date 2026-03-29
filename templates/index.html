@@ -1698,7 +1698,7 @@ function buildFilterOptions() {
     readRatings.map((s, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${s}" onclick="toggleChip(this,'read-rating')">${s}</div>`).join('');
 
   // 频道
-  const channels = ['全部', '耽美', '言情', '无CP'];
+  const channels = ['全部', '纯爱', '言情', '无CP'];
   document.getElementById('channelChips').innerHTML =
     channels.map((c, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${c}" onclick="toggleChip(this,'channel')">${c}</div>`).join('');
 
