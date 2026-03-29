@@ -82,6 +82,18 @@ body {
   flex-direction: column;
   gap: 2px;
 }
+.read-stat-card.clickable {
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.read-stat-card.clickable:hover {
+  border-color: var(--accent2);
+  transform: translateY(-1px);
+}
+.read-stat-card.active-filter {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 1px rgba(99,102,241,.25), var(--shadow-sm);
+}
 .read-stat-label {
   font-size: 11px;
   color: var(--text3);
@@ -1327,9 +1339,9 @@ body {
 <div class="ctrl-row" style="padding-top:10px;padding-bottom:10px;">
   <div class="read-stats-row" style="width:100%;" id="readStatsRow">
     <div class="read-stat-card"><div class="read-stat-label">总书目</div><div class="read-stat-value" id="statTotalBooks">0</div></div>
-    <div class="read-stat-card"><div class="read-stat-label">已读</div><div class="read-stat-value" id="statReadDone">0</div></div>
-    <div class="read-stat-card"><div class="read-stat-label">在读</div><div class="read-stat-value" id="statReading">0</div></div>
-    <div class="read-stat-card"><div class="read-stat-label">想读</div><div class="read-stat-value" id="statReadTodo">0</div></div>
+    <div class="read-stat-card clickable" id="readStatDoneCard" onclick="toggleReadStatusStat('已读')"><div class="read-stat-label">已读</div><div class="read-stat-value" id="statReadDone">0</div></div>
+    <div class="read-stat-card clickable" id="readStatReadingCard" onclick="toggleReadStatusStat('在读')"><div class="read-stat-label">在读</div><div class="read-stat-value" id="statReading">0</div></div>
+    <div class="read-stat-card clickable" id="readStatTodoCard" onclick="toggleReadStatusStat('想读')"><div class="read-stat-label">想读</div><div class="read-stat-value" id="statReadTodo">0</div></div>
   </div>
 </div>
 <!-- 筛选面板 -->
@@ -1604,17 +1616,117 @@ const BOOKMARK_PRESET_TAGS = [
 ];
 
 let activePanel = null;
-let selStatus = '';
-let selChannel = '';
-let selType = '';
-let selEra = '';
+let activeTab = 'books';
+let selStatus = new Set();
+let selChannel = new Set();
+let selType = new Set();
+let selEra = new Set();
 let selTags = new Set();
-let selPiracy = '';
-let selReadStatus = '';
-let selReadRating = '';
+let selPiracy = new Set();
+let selReadStatus = new Set();
+let selReadRating = new Set();
 let favMin = 0;
 let favRangeMinWan = 0;
 let favRangeMaxWan = 50;
+
+function getTabCount(tab) {
+  if (tab === 'books') return Array.isArray(allBooks) ? allBooks.length : 0;
+  if (tab === 'media') return Array.isArray(allMedia) ? allMedia.length : 0;
+  if (tab === 'images') {
+    if (!Array.isArray(allImages)) return 0;
+    return allImages.filter(item => !(item && item.name && hiddenImageNames.has(item.name))).length;
+  }
+  if (tab === 'rankings') return Array.isArray(allRankings) ? allRankings.length : 0;
+  if (tab === 'weekly') return Array.isArray(weeklyRows) ? weeklyRows.length : 0;
+  if (tab === 'bookmarks') return Array.isArray(allBookmarks) ? allBookmarks.length : 0;
+  if (tab === 'author') return Array.isArray(authorHistory) ? authorHistory.length : 0;
+  return 0;
+}
+
+function updateHeaderStats(tab = activeTab) {
+  const stats = document.getElementById('stats');
+  if (!stats) return;
+  const count = getTabCount(tab);
+  if (tab === 'books') {
+    stats.textContent = `${count} 本书目`;
+  } else if (tab === 'media') {
+    stats.textContent = `${count} 条素材`;
+  } else if (tab === 'images') {
+    stats.textContent = `${count} 张图片`;
+  } else if (tab === 'rankings') {
+    stats.textContent = `${count} 条上榜记录`;
+  } else if (tab === 'weekly') {
+    stats.textContent = `${count} 条周榜记录`;
+  } else if (tab === 'bookmarks') {
+    stats.textContent = `${count} 条收藏`;
+  } else {
+    stats.textContent = `作者数据 ${count} 次抓取`;
+  }
+}
+
+function getChipSetByType(type) {
+  if (type === 'status') return selStatus;
+  if (type === 'read-status') return selReadStatus;
+  if (type === 'read-rating') return selReadRating;
+  if (type === 'channel') return selChannel;
+  if (type === 'type') return selType;
+  if (type === 'era') return selEra;
+  return null;
+}
+
+function getChipContainerIdByType(type) {
+  if (type === 'status') return 'statusChips';
+  if (type === 'read-status') return 'readStatusChips';
+  if (type === 'read-rating') return 'readRatingChips';
+  if (type === 'channel') return 'channelChips';
+  if (type === 'type') return 'typeChips';
+  if (type === 'era') return 'eraChips';
+  return '';
+}
+
+function getFilterButtonIdByType(type) {
+  if (type === 'status') return 'btnStatus';
+  if (type === 'read-status') return 'btnReadStatus';
+  if (type === 'read-rating') return 'btnReadRating';
+  if (type === 'channel') return 'btnChannel';
+  if (type === 'type') return 'btnType';
+  if (type === 'era') return 'btnEra';
+  return '';
+}
+
+function syncChipState(type) {
+  const setRef = getChipSetByType(type);
+  const container = document.getElementById(getChipContainerIdByType(type));
+  const btn = document.getElementById(getFilterButtonIdByType(type));
+  if (!setRef || !container) return;
+
+  const chips = container.querySelectorAll('.tag-chip');
+  chips.forEach(chip => {
+    const val = String(chip.dataset.val || '').trim();
+    const active = val === '全部' ? setRef.size === 0 : setRef.has(val);
+    chip.classList.toggle('active', active);
+  });
+
+  if (btn) btn.classList.toggle('has-value', setRef.size > 0);
+  if (type === 'read-status') updateReadStatusCards();
+}
+
+function updateReadStatusCards() {
+  const doneCard = document.getElementById('readStatDoneCard');
+  const readingCard = document.getElementById('readStatReadingCard');
+  const todoCard = document.getElementById('readStatTodoCard');
+  if (doneCard) doneCard.classList.toggle('active-filter', selReadStatus.has('已读'));
+  if (readingCard) readingCard.classList.toggle('active-filter', selReadStatus.has('在读'));
+  if (todoCard) todoCard.classList.toggle('active-filter', selReadStatus.has('想读'));
+}
+
+function toggleReadStatusStat(status) {
+  if (!['已读', '在读', '想读'].includes(status)) return;
+  if (selReadStatus.has(status)) selReadStatus.delete(status);
+  else selReadStatus.add(status);
+  syncChipState('read-status');
+  applyFilter();
+}
 
 async function init() {
   try {
@@ -1691,16 +1803,16 @@ function buildFilterOptions() {
 
   const readStatuses = ['全部', '已读', '在读', '想读', '未标记'];
   document.getElementById('readStatusChips').innerHTML =
-    readStatuses.map((s, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${s}" onclick="toggleChip(this,'read-status')">${s}</div>`).join('');
+    readStatuses.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'read-status')">${s}</div>`).join('');
 
   const readRatings = ['全部', '5星', '4星', '3星', '2星', '1星', '未评分'];
   document.getElementById('readRatingChips').innerHTML =
-    readRatings.map((s, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${s}" onclick="toggleChip(this,'read-rating')">${s}</div>`).join('');
+    readRatings.map(s => `<div class="tag-chip" data-val="${s}" onclick="toggleChip(this,'read-rating')">${s}</div>`).join('');
 
   // 频道
   const channels = ['全部', '纯爱', '言情', '无CP'];
   document.getElementById('channelChips').innerHTML =
-    channels.map((c, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${c}" onclick="toggleChip(this,'channel')">${c}</div>`).join('');
+    channels.map(c => `<div class="tag-chip" data-val="${c}" onclick="toggleChip(this,'channel')">${c}</div>`).join('');
 
   // 类型
   const types = [...new Set(allBooks.map(b => b['类型']).filter(Boolean))].sort();
@@ -1711,7 +1823,7 @@ function buildFilterOptions() {
   const eras = [...new Set(allBooks.map(b => getBookEra(b)).filter(Boolean))].sort();
   const eraOptions = ['全部', ...eras];
   document.getElementById('eraChips').innerHTML =
-    eraOptions.map((e, idx) => `<div class="tag-chip ${idx === 0 ? 'active' : ''}" data-val="${e}" onclick="toggleChip(this,'era')">${e}</div>`).join('')
+    eraOptions.map(e => `<div class="tag-chip" data-val="${e}" onclick="toggleChip(this,'era')">${e}</div>`).join('')
     || '<span style="color:var(--text3);font-size:12px">暂无年代数据</span>';
 
   // 标签
@@ -1735,6 +1847,14 @@ function buildFilterOptions() {
   slider.value = favRangeMinWan;
   favMin = favRangeMinWan * 10000;
   document.getElementById('favRangeVal').textContent = '全部';
+
+  syncChipState('status');
+  syncChipState('read-status');
+  syncChipState('read-rating');
+  syncChipState('channel');
+  syncChipState('type');
+  syncChipState('era');
+  document.getElementById('btnTag').classList.toggle('has-value', selTags.size > 0);
 }
 
 function parseFavNum(str) {
@@ -1881,46 +2001,19 @@ function togglePanel(name) {
 }
 
 function toggleChip(el, type) {
-  const val = el.dataset.val;
-  const container = el.parentElement;
-  container.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
-  if (type === 'status') {
-    selStatus = selStatus === val ? '' : val;
-    if (selStatus) el.classList.add('active');
-    document.getElementById('btnStatus').classList.toggle('has-value', !!selStatus);
-  } else if (type === 'read-status') {
-    selReadStatus = val === '全部' ? '' : val;
-    const activeVal = selReadStatus || '全部';
-    container.querySelectorAll('.tag-chip').forEach(c => {
-      if (c.dataset.val === activeVal) c.classList.add('active');
-    });
-    document.getElementById('btnReadStatus').classList.toggle('has-value', !!selReadStatus);
-  } else if (type === 'read-rating') {
-    selReadRating = val === '全部' ? '' : val;
-    const activeVal = selReadRating || '全部';
-    container.querySelectorAll('.tag-chip').forEach(c => {
-      if (c.dataset.val === activeVal) c.classList.add('active');
-    });
-    document.getElementById('btnReadRating').classList.toggle('has-value', !!selReadRating);
-  } else if (type === 'type') {
-    selType = selType === val ? '' : val;
-    if (selType) el.classList.add('active');
-    document.getElementById('btnType').classList.toggle('has-value', !!selType);
-  } else if (type === 'channel') {
-    selChannel = val === '全部' ? '' : val;
-    const activeVal = selChannel || '全部';
-    container.querySelectorAll('.tag-chip').forEach(c => {
-      if (c.dataset.val === activeVal) c.classList.add('active');
-    });
-    document.getElementById('btnChannel').classList.toggle('has-value', !!selChannel);
-  } else if (type === 'era') {
-    selEra = val === '全部' ? '' : val;
-    const activeVal = selEra || '全部';
-    container.querySelectorAll('.tag-chip').forEach(c => {
-      if (c.dataset.val === activeVal) c.classList.add('active');
-    });
-    document.getElementById('btnEra').classList.toggle('has-value', !!selEra);
+  const val = String(el.dataset.val || '').trim();
+  const setRef = getChipSetByType(type);
+  if (!setRef || !val) return;
+
+  if (val === '全部') {
+    setRef.clear();
+  } else if (setRef.has(val)) {
+    setRef.delete(val);
+  } else {
+    setRef.add(val);
   }
+
+  syncChipState(type);
   applyFilter();
 }
 
@@ -1933,11 +2026,12 @@ function toggleTag(el) {
 }
 
 function togglePiracy(el) {
-  const val = el.dataset.piracy;
-  el.parentElement.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
-  selPiracy = selPiracy === val ? '' : val;
-  if (selPiracy) el.classList.add('active');
-  document.getElementById('btnPiracy').classList.toggle('has-value', !!selPiracy);
+  const val = String(el.dataset.piracy || '').trim();
+  if (!val) return;
+  if (selPiracy.has(val)) selPiracy.delete(val);
+  else selPiracy.add(val);
+  el.classList.toggle('active', selPiracy.has(val));
+  document.getElementById('btnPiracy').classList.toggle('has-value', selPiracy.size > 0);
   applyFilter();
 }
 
@@ -1950,31 +2044,26 @@ function onFavRange() {
 }
 
 function clearAll() {
-  selStatus = '';
-  selReadStatus = '';
-  selReadRating = '';
-  selChannel = '';
-  selType = '';
-  selEra = '';
+  selStatus.clear();
+  selReadStatus.clear();
+  selReadRating.clear();
+  selChannel.clear();
+  selType.clear();
+  selEra.clear();
   selTags.clear();
-  selPiracy = '';
+  selPiracy.clear();
   favMin = favRangeMinWan * 10000;
   document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('has-value'));
   document.getElementById('favRange').value = favRangeMinWan;
   document.getElementById('favRangeVal').textContent = '全部';
-  document.querySelectorAll('#readStatusChips .tag-chip').forEach(c => {
-    if (c.dataset.val === '全部') c.classList.add('active');
-  });
-  document.querySelectorAll('#readRatingChips .tag-chip').forEach(c => {
-    if (c.dataset.val === '全部') c.classList.add('active');
-  });
-  document.querySelectorAll('#channelChips .tag-chip').forEach(c => {
-    if (c.dataset.val === '全部') c.classList.add('active');
-  });
-  document.querySelectorAll('#eraChips .tag-chip').forEach(c => {
-    if (c.dataset.val === '全部') c.classList.add('active');
-  });
+  syncChipState('status');
+  syncChipState('read-status');
+  syncChipState('read-rating');
+  syncChipState('channel');
+  syncChipState('type');
+  syncChipState('era');
+  document.querySelectorAll('#panel-piracy .tag-chip').forEach(c => c.classList.remove('active'));
   document.getElementById('search').value = '';
   applyFilter();
 }
@@ -2016,28 +2105,52 @@ function applyFilter() {
     const note = getBookNote(b);
     const noteStatus = normalizeReadStatus(note ? note.status : '');
     if (q && !b['书名'].toLowerCase().includes(q) && !b['作者'].toLowerCase().includes(q)) return false;
-    if (selStatus && b['投诉状态'] !== selStatus) return false;
-    if (selReadStatus === '未标记' && noteStatus) return false;
-    if (selReadStatus && selReadStatus !== '未标记' && noteStatus !== selReadStatus) return false;
-    if (selReadRating) {
-      const noteRating = note ? Number(note.rating) || 0 : 0;
-      const ratingFilter = normalizeRatingFilter(selReadRating);
-      if (selReadRating === '未评分') {
-        if (noteRating > 0) return false;
-      } else if (ratingFilter !== null && noteRating !== ratingFilter) {
-        return false;
-      }
+    if (selStatus.size > 0 && !selStatus.has(String(b['投诉状态'] || ''))) return false;
+
+    if (selReadStatus.size > 0) {
+      let readStatusMatched = false;
+      selReadStatus.forEach(option => {
+        if (option === '未标记' && !noteStatus) readStatusMatched = true;
+        if (option !== '未标记' && noteStatus === option) readStatusMatched = true;
+      });
+      if (!readStatusMatched) return false;
     }
-    if (selChannel && !matchBookChannel(b, selChannel)) return false;
-    if (selType && b['类型'] !== selType) return false;
-    if (selEra && getBookEra(b) !== selEra) return false;
+
+    if (selReadRating.size > 0) {
+      const noteRating = note ? Number(note.rating) || 0 : 0;
+      let ratingMatched = false;
+      selReadRating.forEach(option => {
+        if (option === '未评分' && noteRating === 0) ratingMatched = true;
+        const ratingFilter = normalizeRatingFilter(option);
+        if (ratingFilter !== null && noteRating === ratingFilter) ratingMatched = true;
+      });
+      if (!ratingMatched) return false;
+    }
+
+    if (selChannel.size > 0) {
+      let channelMatched = false;
+      selChannel.forEach(channel => {
+        if (matchBookChannel(b, channel)) channelMatched = true;
+      });
+      if (!channelMatched) return false;
+    }
+
+    if (selType.size > 0 && !selType.has(String(b['类型'] || ''))) return false;
+    if (selEra.size > 0 && !selEra.has(getBookEra(b))) return false;
+
     if (selTags.size > 0) {
       const bTags = getBookTags(b);
-      if (![...selTags].every(t => bTags.includes(t))) return false;
+      if (![...selTags].some(t => bTags.includes(t))) return false;
     }
+
     if (favMin > 0 && parseFavNum(b['收藏数']) < favMin) return false;
-    if (selPiracy === 'has' && (!b['盗版链接'] || b['盗版链接'].length === 0)) return false;
-    if (selPiracy === 'none' && b['盗版链接'] && b['盗版链接'].length > 0) return false;
+
+    if (selPiracy.size > 0) {
+      const hasPiracy = !!(b['盗版链接'] && b['盗版链接'].length > 0);
+      const piracyMatched = (selPiracy.has('has') && hasPiracy) || (selPiracy.has('none') && !hasPiracy);
+      if (!piracyMatched) return false;
+    }
+
     return true;
   });
   sortFiltered();
@@ -2050,8 +2163,9 @@ function renderList() {
   const wrap = document.getElementById('listWrap');
   const loadWrap = document.getElementById('loadMoreWrap');
   const total = filtered.length;
-  const piracyTotal = filtered.filter(b => b['盗版链接'] && b['盗版链接'].length > 0).length;
-  document.getElementById('stats').textContent = `${total} 本 · ${piracyTotal} 本有盗版`;
+  if (document.getElementById('page-books').style.display !== 'none') {
+    updateHeaderStats('books');
+  }
 
   if (total === 0) {
     list.className = '';
@@ -2444,6 +2558,7 @@ document.addEventListener('keydown', e => {
 
 // ── Tab switching ──
 function switchTab(tab) {
+  activeTab = tab;
   const isBooks = tab === 'books';
   const isMedia = tab === 'media';
   const isImages = tab === 'images';
@@ -2467,28 +2582,23 @@ function switchTab(tab) {
   document.querySelectorAll('#page-books .filter-panel').forEach(p => p.classList.remove('open'));
   activePanel = null;
 
-  const stats = document.getElementById('stats');
   if (isMedia) {
-    const total = mediaFiltered.length || allMedia.length || 0;
-    stats.textContent = `${total} 条素材`;
     renderMedia();
   } else if (isImages) {
     renderImageBed();
-    stats.textContent = `${filteredImages.length || allImages.length || 0} 张图片`;
   } else if (isRankings) {
     renderRankings();
-    stats.textContent = `${filteredRankings.length || 0} 条上榜记录`;
   } else if (isWeekly) {
     renderWeeklyRankings();
-    stats.textContent = `${weeklyRows.length || 0} 条周榜记录`;
   } else if (isBookmarks) {
     renderBookmarks();
-    stats.textContent = `${filteredBookmarks.length || allBookmarks.length || 0} 条收藏`;
   } else if (isBooks) {
     applyFilter();
   } else {
-    stats.textContent = `作者数据 ${authorHistory.length || 0} 次抓取`;
+    renderAuthor();
   }
+
+  updateHeaderStats(tab);
 
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -2618,7 +2728,7 @@ function renderMedia() {
   const grid = document.getElementById('mediaGrid');
   if (!mediaFiltered.length) {
     grid.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>没有符合条件的素材</div>';
-    document.getElementById('stats').textContent = '0 条素材';
+    if (document.getElementById('page-media').style.display !== 'none') updateHeaderStats('media');
     return;
   }
 
@@ -2655,7 +2765,7 @@ function renderMedia() {
       </div>`;
   }).join('');
 
-  document.getElementById('stats').textContent = `${mediaFiltered.length} 条素材`;
+  if (document.getElementById('page-media').style.display !== 'none') updateHeaderStats('media');
 }
 
 async function toggleMediaWatched(idx, checked) {
@@ -2886,9 +2996,7 @@ function renderBookmarks() {
 
   if (!filteredBookmarks.length) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">🔖</div>暂无符合条件的收藏</div>';
-    if (document.getElementById('page-bookmarks').style.display !== 'none') {
-      document.getElementById('stats').textContent = '0 条收藏';
-    }
+    if (document.getElementById('page-bookmarks').style.display !== 'none') updateHeaderStats('bookmarks');
     return;
   }
 
@@ -2914,9 +3022,7 @@ function renderBookmarks() {
       </div>`;
   }).join('');
 
-  if (document.getElementById('page-bookmarks').style.display !== 'none') {
-    document.getElementById('stats').textContent = `${filteredBookmarks.length} 条收藏`;
-  }
+  if (document.getElementById('page-bookmarks').style.display !== 'none') updateHeaderStats('bookmarks');
 }
 
 function normalizeImageList(list) {
@@ -3097,9 +3203,7 @@ function renderRankings() {
   if (!selectedRankingDate || !rankingDates.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
     summary.innerHTML = '<div class="summary-card"><div class="summary-label">当日上榜书目</div><div class="summary-value">0</div></div>';
-    if (document.getElementById('page-rankings').style.display !== 'none') {
-      stats.textContent = '0 条上榜记录';
-    }
+    if (document.getElementById('page-rankings').style.display !== 'none') updateHeaderStats('rankings');
     return;
   }
 
@@ -3147,9 +3251,7 @@ function renderRankings() {
     `).join('');
   }
 
-  if (document.getElementById('page-rankings').style.display !== 'none') {
-    stats.textContent = `${enriched.length} 条上榜记录`; 
-  }
+  if (document.getElementById('page-rankings').style.display !== 'none') updateHeaderStats('rankings');
 }
 
 function buildWeeklyChannelFilters() {
@@ -3419,9 +3521,7 @@ function renderWeeklyRankings() {
 
   if (!visibleRows.length) {
     wrap.innerHTML = '<div class="empty"><div class="empty-icon">📅</div>该条件下暂无周榜数据</div>';
-    if (document.getElementById('page-weekly').style.display !== 'none') {
-      stats.textContent = '0 条周榜记录';
-    }
+    if (document.getElementById('page-weekly').style.display !== 'none') updateHeaderStats('weekly');
     return;
   }
 
@@ -3461,9 +3561,7 @@ function renderWeeklyRankings() {
     `;
   }).join('');
 
-  if (document.getElementById('page-weekly').style.display !== 'none') {
-    stats.textContent = `${visibleRows.length} 条周榜记录`;
-  }
+  if (document.getElementById('page-weekly').style.display !== 'none') updateHeaderStats('weekly');
 }
 
 function saveHiddenImageNames() {
@@ -3589,9 +3687,7 @@ function renderImageBed() {
 
   if (!filteredImages.length) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">🖼️</div>暂无图片，先上传一张吧</div>';
-    if (document.getElementById('page-images').style.display !== 'none') {
-      document.getElementById('stats').textContent = '0 张图片';
-    }
+    if (document.getElementById('page-images').style.display !== 'none') updateHeaderStats('images');
     return;
   }
 
@@ -3616,9 +3712,7 @@ function renderImageBed() {
       </div>`;
   }).join('');
 
-  if (document.getElementById('page-images').style.display !== 'none') {
-    document.getElementById('stats').textContent = `${filteredImages.length} 张图片`;
-  }
+  if (document.getElementById('page-images').style.display !== 'none') updateHeaderStats('images');
 }
 
 function showImageCopyTip(inputEl, text, ok) {

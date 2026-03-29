@@ -22,19 +22,34 @@ def supabase_get(table, filters=None):
 
 def supabase_upsert(table, data):
     import json as json_lib
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
-    headers = {
+    # 先查是否存在
+    check_url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers_api = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json; charset=utf-8",
-        "Prefer": "resolution=merge-duplicates",
     }
-    r = req.post(
-        url, 
-        headers=headers, 
-        data=json_lib.dumps(data, ensure_ascii=False).encode("utf-8")
-    )
+    # 用PATCH更新或POST新增
+    existing = req.get(check_url, headers=headers_api,
+                      params={"book_name": f"eq.{data.get('book_name', '')}"})
+    
+    if existing.json():
+        # 已存在，用PATCH更新
+        r = req.patch(
+            check_url,
+            headers={**headers_api, "Prefer": "return=minimal"},
+            params={"book_name": f"eq.{data.get('book_name', '')}"},
+            data=json_lib.dumps(data, ensure_ascii=False).encode("utf-8")
+        )
+    else:
+        # 不存在，用POST新增
+        r = req.post(
+            check_url,
+            headers={**headers_api, "Prefer": "resolution=merge-duplicates"},
+            data=json_lib.dumps(data, ensure_ascii=False).encode("utf-8")
+        )
     return r.status_code
+
 
 def _read_json_file(path, default):
     if not os.path.exists(path):
