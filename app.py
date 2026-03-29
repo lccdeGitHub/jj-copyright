@@ -21,14 +21,19 @@ def supabase_get(table, filters=None):
     return r.json()
 
 def supabase_upsert(table, data):
+    import json as json_lib
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json; charset=utf-8",
         "Prefer": "resolution=merge-duplicates",
     }
-    r = req.post(url, headers=headers, json=data)
+    r = req.post(
+        url, 
+        headers=headers, 
+        data=json_lib.dumps(data, ensure_ascii=False).encode("utf-8")
+    )
     return r.status_code
 
 def _read_json_file(path, default):
