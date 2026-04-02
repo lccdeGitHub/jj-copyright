@@ -3364,6 +3364,42 @@ function selectWeeklyLevel2Option(level2) {
   renderWeeklyRankings();
 }
 
+function normalizeWeeklyPeriodValue(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  const matched = text.match(/\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2}/);
+  const raw = matched ? matched[0] : text;
+  const normalized = raw.replace(/[\/.]/g, '-');
+  const parts = normalized.split('-');
+
+  if (parts.length === 3 && parts.every(part => /^\d+$/.test(part))) {
+    const [year, month, day] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  return normalized;
+}
+
+function normalizeWeeklyPeriods(payload) {
+  if (!Array.isArray(payload)) return [];
+
+  const seen = new Set();
+  const result = [];
+
+  payload.forEach(item => {
+    const raw = typeof item === 'string'
+      ? item
+      : (item && typeof item === 'object' ? (item.period || item.rank_date || '') : '');
+    const period = normalizeWeeklyPeriodValue(raw);
+    if (!period || seen.has(period)) return;
+    seen.add(period);
+    result.push(period);
+  });
+
+  return result;
+}
+
 function normalizeWeeklyRows(list) {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -3392,24 +3428,29 @@ async function initWeeklyRankings() {
     buildWeeklyLevel2Filters();
 
     const res = await fetch('/api/weekly_rankings/periods');
-    const payload = await res.json();
-    const periods = Array.isArray(payload) ? payload : [];
+    const payload = await res.json().catch(() => []);
 
-    weeklyPeriods = periods
-      .map(item => String(item || '').trim())
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
-
-    selectedWeeklyPeriod = weeklyPeriods.length ? weeklyPeriods[weeklyPeriods.length - 1] : '';
+    weeklyPeriods = normalizeWeeklyPeriods(payload);
+    selectedWeeklyPeriod = weeklyPeriods[0] || '';
     buildWeeklyPeriodSelector();
+
+    const select = document.getElementById('weeklyPeriod');
+    if (select && selectedWeeklyPeriod) {
+      select.value = selectedWeeklyPeriod;
+    }
 
     if (selectedWeeklyPeriod) {
       await fetchWeeklyRankings();
+    } else {
+      weeklyRows = [];
+      renderWeeklyRankings();
     }
   } catch (e) {
     weeklyPeriods = [];
     selectedWeeklyPeriod = '';
+    weeklyRows = [];
     buildWeeklyPeriodSelector();
+    renderWeeklyRankings();
   }
 }
 
@@ -3423,12 +3464,15 @@ function buildWeeklyPeriodSelector() {
     return;
   }
 
+  if (!weeklyPeriods.includes(selectedWeeklyPeriod)) {
+    selectedWeeklyPeriod = weeklyPeriods[0] || '';
+  }
+
   select.disabled = false;
   select.innerHTML = weeklyPeriods
-    .slice()
-    .reverse()
     .map(period => `<option value="${period}" ${period === selectedWeeklyPeriod ? 'selected' : ''}>${period}</option>`)
     .join('');
+  select.value = selectedWeeklyPeriod;
 }
 
 async function fetchWeeklyRankings() {
