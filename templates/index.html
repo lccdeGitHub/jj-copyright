@@ -2131,6 +2131,15 @@ function buildBooksQueryParams(page = 1) {
   return params;
 }
 
+function filterBooksByReadStatus(list) {
+  if (!selReadStatus.size) return list;
+  return list.filter(book => {
+    const note = getBookNote(book);
+    const status = normalizeReadStatus(note ? note.status : '');
+    return status && selReadStatus.has(status);
+  });
+}
+
 async function fetchBooksPage(page = 1) {
   currentPage = Math.max(1, page);
   const params = buildBooksQueryParams(currentPage);
@@ -2138,7 +2147,8 @@ async function fetchBooksPage(page = 1) {
   const payload = await res.json().catch(() => ({}));
   const data = Array.isArray(payload.data) ? payload.data : [];
 
-  filtered = data;
+  const filteredData = filterBooksByReadStatus(data);
+  filtered = filteredData;
   allBooks = data;
   const totalValue = Number(payload.total);
   const pageSizeValue = Number(payload.page_size);
