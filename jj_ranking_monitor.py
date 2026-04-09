@@ -4,6 +4,7 @@ import re
 import time
 import random
 from datetime import date
+import json
 
 import os
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
@@ -113,10 +114,34 @@ def crawl_ranking():
     except Exception as e:
         print(f"抓取榜单失败：{e}")
         return []
+def supabase_get(table, params):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    }
+    r = requests.get(url, headers=headers_api, params=params, verify=False, timeout=30)
+    return r.json()
+
+def supabase_patch(table, params, data):
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers_api = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+    r = requests.patch(
+        url,
+        headers=headers_api,
+        data=json.dumps(data, ensure_ascii=False).encode("utf-8"),
+        params=params,
+        verify=False,
+        timeout=30
+    )
+    return r.status_code
 def main():
     beijing_tz = timezone(timedelta(hours=8))
     today = datetime.now(beijing_tz).strftime("%Y-%m-%d")
-    # today = date.today().isoformat()
     print(f"📅 日期：{today}")
     
     books = crawl_ranking()
@@ -126,7 +151,7 @@ def main():
     
     for i, book in enumerate(books, 1):
         print(f"\n[{i}/{len(books)}] 《{book['title']}》")
-        print(f"  [调试] url: {book['url']}")  # 加这行
+        print(f"  [调试] url: {book['url']}")
         
         fav = get_fav_count(book["url"])
         print(f"  收藏数：{fav}")
@@ -144,9 +169,47 @@ def main():
         }
         status = supabase_insert("rankings", data)
         print(f"  写入状态：{status}")
-        
         time.sleep(random.uniform(2, 4))
     
-    print(f"\n✅ 完成！共记录 {len(books)} 本书")
+    print(f"\n✅ 今日榜单完成！共记录 {len(books)} 本书")
+
+    # 第二步：解析昨日快照，更新fav_end
+    print("\n📸 开始处理昨日快照...")
+    yesterday = (datetime.now(beijing_tz) - timedelta(days=1)).strftime("%Y-%m-%d")
+    result = supabase_get("ranking_snapshots", {"snapshot_date": f"eq.{yesterday}"})
+    
+    if result and isinstance(result, list):
+        snapshot_html = result[0]["html_content"]
+        soup = BeautifulSoup(snapshot_html, "lxml")
+        snapshot_books = []
+        for a in soup.select("a[href*='book2']"):
+            title = a.get_text(strip=True)
+            href = a.get("href", "")
+            if not href.startswith("http"):
+                href = "https://wap.jjwxc.net" + href
+            if title:
+                snapshot_books.append({"title": title, "url": href})
+        
+        print(f"  昨日快照共 {len(snapshot_books)} 本书")
+        for book in snapshot_books:
+            fav_end = get_fav_count(book["url"])
+            # 查昨日fav_start
+            rows = supabase_get("rankings", {
+                "rank_date": f"eq.{yesterday}",
+                "title": f"eq.{book['title']}"
+            })
+            if rows and isinstance(rows, list):
+                fav_start = rows[0].get("fav_start", 0) or 0
+                fav_growth = fav_end - fav_start
+                supabase_patch(
+                    "rankings",
+                    {"rank_date": f"eq.{yesterday}", "title": f"eq.{book['title']}"},
+                    {"fav_end": fav_end, "fav_growth": fav_growth}
+                )
+                print(f"  《{book['title']}》fav_end:{fav_end} 涨幅:{fav_growth}")
+            time.sleep(random.uniform(2, 4))
+        print("✅ 昨日快照处理完成！")
+    else:
+        print("  未找到昨日快照，跳过")
 if __name__ == "__main__":
     main()
