@@ -1949,8 +1949,7 @@ function updateReadStats() {
   let reading = 0;
   let todo = 0;
 
-  allBooks.forEach(book => {
-    const note = getBookNote(book);
+  Object.values(notesByBook).forEach(note => {
     const status = normalizeReadStatus(note ? note.status : '');
     if (status === '已读') done++;
     else if (status === '在读') reading++;
@@ -2398,7 +2397,8 @@ async function saveCurrentNote() {
       body: JSON.stringify(payload),
     });
 
-    if (!res.ok) throw new Error('save failed');
+    const result = await res.json().catch(() => null);
+    if (!res.ok || !result || result.ok !== true) throw new Error('save failed');
 
     notesByBook[currentModalBook['书名']] = {
       book_name: currentModalBook['书名'],
@@ -2409,7 +2409,8 @@ async function saveCurrentNote() {
     };
     updateReadStats();
     applyFilter();
-    
+    closeModal();
+
     // 更改按钮状态
     if (btnEl) {
       const originalText = btnEl.textContent;
