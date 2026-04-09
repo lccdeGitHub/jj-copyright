@@ -77,11 +77,27 @@ def api_books():
     data = load_data()
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
+    channel = request.args.get("channel", "")
+    page = int(request.args.get("page", 1))
+    page_size = 50
+
     if q:
-        data = [b for b in data if q in b["书名"] or q in b["作者"]]
+        data = [b for b in data if q in b.get("书名", "") or q in b.get("作者", "")]
     if status:
         data = [b for b in data if b.get("投诉状态") == status]
-    return jsonify(data)
+    if channel:
+        data = [b for b in data if b.get("频道") == channel]
+
+    total = len(data)
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return jsonify({
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "data": data[start:end]
+    })
 
 @app.route("/api/author_data")
 def api_author_data():
