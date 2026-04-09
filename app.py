@@ -278,11 +278,9 @@ def get_weekly_rankings():
 
 @app.route("/api/weekly_rankings/periods", methods=["GET"])
 def get_weekly_periods():
-    # 获取所有有数据的期数
-    result = supabase_get("weekly_rankings", {"select": "period"})
+    result = supabase_get("weekly_periods", {"order": "period.desc"})
     if isinstance(result, list):
-        periods = list(set([r["period"] for r in result if r.get("period")]))
-        periods.sort(reverse=True)
+        periods = [r["period"] for r in result if r.get("period")]
         return jsonify(periods)
     return jsonify([])
 
