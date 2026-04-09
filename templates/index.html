@@ -1620,6 +1620,7 @@ let selectedWeeklyPeriod = '';
 let selectedWeeklyChannel = '现言';
 let selectedWeeklyLevel2 = '全部榜单';
 let weeklyLevel2Query = '';
+let weeklyLevel2Composing = false;
 let weeklyComboboxOpen = false;
 let weeklyRows = [];
 const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
@@ -3267,6 +3268,8 @@ function buildWeeklyLevel2Filters() {
         value="${escHtml(displayValue)}"
         autocomplete="off"
         onclick="openWeeklyLevel2Dropdown()"
+        oncompositionstart="onWeeklyLevel2CompositionStart()"
+        oncompositionend="onWeeklyLevel2CompositionEnd()"
         oninput="onWeeklyLevel2Input(this.value)"
       >
       <button type="button" class="weekly-combobox-btn" onclick="toggleWeeklyLevel2Dropdown(event)" aria-label="切换榜单分类下拉">
@@ -3328,10 +3331,21 @@ function toggleWeeklyLevel2Dropdown(event) {
 
 function onWeeklyLevel2Input(value) {
   weeklyLevel2Query = String(value || '').trim();
+  if (weeklyLevel2Composing) return;
   selectedWeeklyLevel2 = '全部榜单';
   weeklyComboboxOpen = true;
   buildWeeklyLevel2Filters();
   renderWeeklyRankings();
+}
+
+function onWeeklyLevel2CompositionStart() {
+  weeklyLevel2Composing = true;
+}
+
+function onWeeklyLevel2CompositionEnd() {
+  weeklyLevel2Composing = false;
+  const input = document.getElementById('weeklyLevel2Input');
+  if (input) onWeeklyLevel2Input(input.value);
 }
 
 function selectWeeklyLevel2Option(level2) {
