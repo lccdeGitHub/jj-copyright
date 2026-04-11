@@ -1585,14 +1585,17 @@ body {
 let allBooks = [];
 let filtered = [];
 let PAGE_SIZE = 50;
-let currentPage = 1;
+let currentPage = 0;
+let nextPage = 1;
 let bookTotal = 0;
 let bookPageSize = 50;
 let bookTotalPages = 1;
+let bookSeed = Date.now();
 let viewMode = 'grid';    // 'grid' | 'list'
 let sortMode = 'random';  // 'random' | 'fav_desc' | 'fav_asc' | 'piracy'
 let isLoadingMore = false;
 let allLoaded = false;
+let loadMoreStatus = 'idle';
 let authorCharts = [];
 let currentModalBook = null;
 let currentModalRating = 0;
@@ -2116,6 +2119,7 @@ function onFilter() {
 function buildBooksQueryParams(page = 1) {
   const params = new URLSearchParams();
   params.set('page', String(page));
+  params.set('seed', String(bookSeed));
 
   const q = String(document.getElementById('search').value || '').trim();
   if (q) params.set('q', q);
@@ -2131,6 +2135,45 @@ function buildBooksQueryParams(page = 1) {
   return params;
 }
 
+function resetBookScrollState() {
+  bookSeed = Date.now();
+  currentPage = 0;
+  nextPage = 1;
+  allLoaded = false;
+  loadMoreStatus = 'idle';
+  allBooks = [];
+  filtered = [];
+  bookTotal = 0;
+  bookPageSize = PAGE_SIZE;
+  bookTotalPages = 1;
+
+  const list = document.getElementById('list');
+  if (list) list.innerHTML = '';
+
+  const loadMoreWrap = document.getElementById('loadMoreWrap');
+  if (loadMoreWrap) {
+    loadMoreWrap.style.display = 'none';
+    loadMoreWrap.innerHTML = '';
+  }
+}
+
+function setLoadMoreStatus(status) {
+  loadMoreStatus = status;
+  const wrap = document.getElementById('loadMoreWrap');
+  if (!wrap) return;
+
+  if (status === 'loading') {
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<div class="loading-indicator"><span class="spinner"></span>正在加载...</div>';
+  } else if (status === 'done') {
+    wrap.style.display = 'block';
+    wrap.innerHTML = '<div class="load-complete">已加载全部</div>';
+  } else {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+  }
+}
+
 function filterBooksByReadStatus(list) {
   if (!selReadStatus.size) return list;
   return list.filter(book => {
@@ -2141,29 +2184,54 @@ function filterBooksByReadStatus(list) {
 }
 
 async function fetchBooksPage(page = 1) {
-  currentPage = Math.max(1, page);
-  const params = buildBooksQueryParams(currentPage);
-  const res = await fetch(`/api/books?${params.toString()}`);
-  const payload = await res.json().catch(() => ({}));
-  const data = Array.isArray(payload.data) ? payload.data : [];
+  if (isLoadingMore || allLoaded) return;
+  page = Math.max(1, page);
 
-  const filteredData = filterBooksByReadStatus(data);
-  filtered = filteredData;
-  allBooks = data;
-  const totalValue = Number(payload.total);
-  const pageSizeValue = Number(payload.page_size);
-  bookTotal = Number.isFinite(totalValue) ? totalValue : (Array.isArray(data) ? data.length : 0);
-  bookPageSize = Number.isFinite(pageSizeValue) && pageSizeValue > 0 ? pageSizeValue : PAGE_SIZE;
-  bookTotalPages = bookPageSize > 0 ? Math.max(1, Math.ceil(bookTotal / bookPageSize)) : 1;
-  if (currentPage > bookTotalPages) currentPage = bookTotalPages;
+  const params = buildBooksQueryParams(page);
+  isLoadingMore = true;
+  setLoadMoreStatus('loading');
 
-  sortFiltered();
-  renderList();
-  renderPagination();
+  try {
+    const res = await fetch(`/api/books?${params.toString()}`);
+    const payload = await res.json().catch(() => ({}));
+    const data = Array.isArray(payload.data) ? payload.data : [];
+    const filteredData = filterBooksByReadStatus(data);
+
+    if (page === 1) {
+      allBooks = data;
+      filtered = filteredData;
+    } else {
+      allBooks = allBooks.concat(data);
+      filtered = filtered.concat(filteredData);
+    }
+
+    const totalValue = Number(payload.total);
+    const pageSizeValue = Number(payload.page_size);
+    bookTotal = Number.isFinite(totalValue) ? totalValue : (Array.isArray(data) ? data.length : 0);
+    bookPageSize = Number.isFinite(pageSizeValue) && pageSizeValue > 0 ? pageSizeValue : PAGE_SIZE;
+    bookTotalPages = bookPageSize > 0 ? Math.max(1, Math.ceil(bookTotal / bookPageSize)) : 1;
+    currentPage = page;
+    nextPage = currentPage + 1;
+
+    if (bookTotal > 0 && page * bookPageSize >= bookTotal) {
+      allLoaded = true;
+      setLoadMoreStatus('done');
+    } else {
+      allLoaded = false;
+      setLoadMoreStatus('idle');
+    }
+
+    sortFiltered();
+    renderList();
+  } catch (e) {
+    setLoadMoreStatus('idle');
+  } finally {
+    isLoadingMore = false;
+  }
 }
 
 function applyFilter() {
-  currentPage = 1;
+  resetBookScrollState();
   fetchBooksPage(1);
 }
 
@@ -2176,11 +2244,12 @@ function renderList() {
     updateHeaderStats('books');
   }
 
+  if (paginationWrap) paginationWrap.style.display = 'none';
+
   if (total === 0) {
     list.className = '';
     wrap.classList.remove('grid-mode');
     list.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>没有符合条件的书目</div>';
-    if (paginationWrap) paginationWrap.style.display = bookTotal > 0 ? 'flex' : 'none';
     return;
   }
 
@@ -2194,29 +2263,12 @@ function renderList() {
     list.className = '';
     list.innerHTML = pageData.map((b, i) => renderCard(b, i)).join('');
   }
-
-  if (paginationWrap) paginationWrap.style.display = 'flex';
 }
 
 function renderPagination() {
   const paginationWrap = document.getElementById('paginationWrap');
-  const pageInfo = document.getElementById('pageInfo');
-  const prevBtn = document.getElementById('prevPageBtn');
-  const nextBtn = document.getElementById('nextPageBtn');
-  const pageInput = document.getElementById('pageInput');
-
   if (!paginationWrap) return;
-  const totalPages = Number.isFinite(bookTotalPages) ? bookTotalPages : 1;
-  const current = Math.min(Math.max(1, currentPage), totalPages);
-
-  if (pageInfo) pageInfo.textContent = `第${current}页 / 共${totalPages}页`;
-  if (prevBtn) prevBtn.disabled = current <= 1;
-  if (nextBtn) nextBtn.disabled = current >= totalPages;
-  if (pageInput) {
-    pageInput.value = current;
-    pageInput.max = totalPages;
-  }
-  paginationWrap.style.display = bookTotal > 0 ? 'flex' : 'none';
+  paginationWrap.style.display = 'none';
 }
 
 function goToPage(page) {
@@ -2235,7 +2287,15 @@ function jumpToPage() {
 }
 
 function onWindowScroll() {
-  // pagination mode does not use infinite scroll
+  if (activeTab !== 'books') return;
+  const pageBooks = document.getElementById('page-books');
+  if (!pageBooks || pageBooks.style.display === 'none') return;
+  if (isLoadingMore || allLoaded) return;
+
+  const scrollBottom = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+  if (scrollBottom > 200) return;
+
+  fetchBooksPage(currentPage + 1);
 }
 
 // ── Grid Card ──

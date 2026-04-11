@@ -72,6 +72,8 @@ def load_data():
 def index():
     return render_template("index.html")
 
+import random
+
 @app.route("/api/books")
 def api_books():
     data = load_data()
@@ -79,6 +81,7 @@ def api_books():
     status = request.args.get("status", "")
     channel = request.args.get("channel", "")
     page = int(request.args.get("page", 1))
+    seed = request.args.get("seed", "")
     page_size = 50
 
     if q:
@@ -88,6 +91,10 @@ def api_books():
     if channel:
         data = [b for b in data if b.get("频道") == channel]
 
+    if seed:
+        random.seed(int(seed))
+    random.shuffle(data)
+
     total = len(data)
     start = (page - 1) * page_size
     end = start + page_size
@@ -96,6 +103,7 @@ def api_books():
         "total": total,
         "page": page,
         "page_size": page_size,
+        "seed": seed,
         "data": data[start:end]
     })
 
