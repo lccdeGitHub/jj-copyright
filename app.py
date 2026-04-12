@@ -80,16 +80,40 @@ def api_books():
     q = request.args.get("q", "").strip()
     status = request.args.get("status", "")
     channel = request.args.get("channel", "")
+    read_status = request.args.get("read_status", "")
+    fav_min = request.args.get("fav_min", "")
+    fav_max = request.args.get("fav_max", "")
     page = int(request.args.get("page", 1))
     seed = request.args.get("seed", "")
     page_size = 50
 
+    # 如果需要按阅读状态筛选，先从notes表拿对应书名
+    if read_status:
+        try:
+            rows = supabase_get("notes", {"status": f"eq.{read_status}", "select": "book_name"})
+            read_books = {item["book_name"] for item in rows}
+            data = [b for b in data if b.get("书名") in read_books]
+        except:
+            data = []
     if q:
         data = [b for b in data if q in b.get("书名", "") or q in b.get("作者", "")]
     if status:
         data = [b for b in data if b.get("投诉状态") == status]
     if channel:
-        data = [b for b in data if b.get("频道") == channel]
+        # 频道藏在类型字段里，如"原创-纯爱-近代现代-剧情"
+        data = [b for b in data if channel in b.get("类型", "")]
+
+    # 收藏数筛选，去掉逗号转int
+    def parse_fav(s):
+        try:
+            return int(str(s).replace(",", ""))
+        except:
+            return 0
+
+    if fav_min:
+        data = [b for b in data if parse_fav(b.get("收藏数", 0)) >= int(fav_min)]
+    if fav_max:
+        data = [b for b in data if parse_fav(b.get("收藏数", 0)) <= int(fav_max)]
 
     if seed:
         random.seed(int(seed))
@@ -106,7 +130,6 @@ def api_books():
         "seed": seed,
         "data": data[start:end]
     })
-
 @app.route("/api/author_data")
 def api_author_data():
     path = os.path.join(os.path.dirname(__file__), "author_data.json")

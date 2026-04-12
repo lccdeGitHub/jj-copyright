@@ -1389,11 +1389,8 @@ body {
 </div>
 <div class="filter-panel" id="panel-fav">
   <div class="filter-section">
-    <div class="filter-label">最低收藏数</div>
-    <div class="range-row">
-      <input type="range" id="favRange" min="0" max="100" value="0" step="1" oninput="onFavRange()">
-      <span class="range-val" id="favRangeVal">全部</span>
-    </div>
+    <div class="filter-label">收藏数区间</div>
+    <div class="tag-grid" id="favChips"></div>
   </div>
 </div>
 <div class="filter-panel" id="panel-piracy">
@@ -1643,8 +1640,8 @@ let selPiracy = new Set();
 let selReadStatus = new Set();
 let selReadRating = new Set();
 let favMin = 0;
-let favRangeMinWan = 0;
-let favRangeMaxWan = 50;
+let favMax = 0;
+let selectedFavRange = '全部';
 
 function getTabCount(tab) {
   if (tab === 'books') return Number.isFinite(bookTotal) ? bookTotal : (Array.isArray(allBooks) ? allBooks.length : 0);
@@ -1851,18 +1848,20 @@ function buildFilterOptions() {
     ).join('') || '<span style="color:var(--text3);font-size:12px">暂无标签数据</span>';
 
   // 收藏范围改为按数据自适应上限，避免 100w 区间样本过少
-  const favNums = allBooks.map(b => parseFavNum(b['收藏数'])).filter(n => n > 0).sort((a, b) => a - b);
-  const p95 = favNums.length ? favNums[Math.floor((favNums.length - 1) * 0.95)] : 500000;
-  favRangeMinWan = 0;
-  favRangeMaxWan = Math.max(20, Math.min(60, Math.ceil((p95 / 10000) / 5) * 5));
-
-  const slider = document.getElementById('favRange');
-  slider.min = favRangeMinWan;
-  slider.max = favRangeMaxWan;
-  slider.step = 1;
-  slider.value = favRangeMinWan;
-  favMin = favRangeMinWan * 10000;
-  document.getElementById('favRangeVal').textContent = '全部';
+  const favOptions = [
+    { label: '全部', min: 0, max: 0 },
+    { label: '5w以下', min: 0, max: 50000 },
+    { label: '5-20w', min: 50000, max: 200000 },
+    { label: '20-50w', min: 200000, max: 500000 },
+    { label: '50-100w', min: 500000, max: 1000000 },
+    { label: '100w+', min: 1000000, max: 0 },
+  ];
+  document.getElementById('favChips').innerHTML =
+    favOptions.map(option => `<div class="tag-chip" data-val="${option.label}" onclick="toggleFavRange(this)">${option.label}</div>`).join('');
+  favMin = 0;
+  favMax = 0;
+  selectedFavRange = '全部';
+  document.getElementById('btnFav').classList.remove('has-value');
 
   syncChipState('status');
   syncChipState('read-status');
@@ -2022,7 +2021,14 @@ function toggleChip(el, type) {
   const setRef = getChipSetByType(type);
   if (!setRef || !val) return;
 
-  if (val === '全部') {
+  if ((type === 'channel' || type === 'read-status') && val !== '全部') {
+    if (setRef.has(val)) {
+      setRef.clear();
+    } else {
+      setRef.clear();
+      setRef.add(val);
+    }
+  } else if (val === '全部') {
     setRef.clear();
   } else if (setRef.has(val)) {
     setRef.delete(val);
@@ -2031,6 +2037,47 @@ function toggleChip(el, type) {
   }
 
   syncChipState(type);
+  applyFilter();
+}
+
+function toggleFavRange(el) {
+  const val = String(el.dataset.val || '').trim();
+  if (!val) return;
+
+  const active = el.classList.contains('active');
+  const chips = document.querySelectorAll('#favChips .tag-chip');
+  chips.forEach(c => c.classList.remove('active'));
+
+  if (active || val === '全部') {
+    favMin = 0;
+    favMax = 0;
+    selectedFavRange = '全部';
+    document.getElementById('btnFav').classList.remove('has-value');
+  } else {
+    selectedFavRange = val;
+    document.getElementById('btnFav').classList.add('has-value');
+    el.classList.add('active');
+    if (val === '5w以下') {
+      favMin = 0;
+      favMax = 50000;
+    } else if (val === '5-20w') {
+      favMin = 50000;
+      favMax = 200000;
+    } else if (val === '20-50w') {
+      favMin = 200000;
+      favMax = 500000;
+    } else if (val === '50-100w') {
+      favMin = 500000;
+      favMax = 1000000;
+    } else if (val === '100w+') {
+      favMin = 1000000;
+      favMax = 0;
+    } else {
+      favMin = 0;
+      favMax = 0;
+    }
+  }
+
   applyFilter();
 }
 
@@ -2052,14 +2099,6 @@ function togglePiracy(el) {
   applyFilter();
 }
 
-function onFavRange() {
-  const v = parseInt(document.getElementById('favRange').value);
-  favMin = v * 10000;
-  document.getElementById('favRangeVal').textContent = v <= 0 ? '全部' : `${v}万+`;
-  document.getElementById('btnFav').classList.toggle('has-value', v > 0);
-  applyFilter();
-}
-
 function clearAll() {
   selStatus.clear();
   selReadStatus.clear();
@@ -2069,11 +2108,13 @@ function clearAll() {
   selEra.clear();
   selTags.clear();
   selPiracy.clear();
-  favMin = favRangeMinWan * 10000;
+  favMin = 0;
+  favMax = 0;
+  selectedFavRange = '全部';
   document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('#filterRow .filter-btn').forEach(b => b.classList.remove('has-value'));
-  document.getElementById('favRange').value = favRangeMinWan;
-  document.getElementById('favRangeVal').textContent = '全部';
+  document.querySelectorAll('#favChips .tag-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('btnFav').classList.remove('has-value');
   syncChipState('status');
   syncChipState('read-status');
   syncChipState('read-rating');
@@ -2125,12 +2166,14 @@ function buildBooksQueryParams(page = 1) {
   if (q) params.set('q', q);
 
   selStatus.forEach(status => params.append('status', status));
-  selChannel.forEach(channel => params.append('channel', channel));
+  if (selReadStatus.size === 1) params.set('read_status', String([...selReadStatus][0]));
+  if (selChannel.size > 0) params.set('channel', String([...selChannel][0]));
   selType.forEach(type => params.append('type', type));
   selEra.forEach(era => params.append('era', era));
   selTags.forEach(tag => params.append('tag', tag));
   selPiracy.forEach(piracy => params.append('piracy', piracy));
   if (favMin > 0) params.set('fav_min', String(favMin));
+  if (favMax > 0) params.set('fav_max', String(favMax));
 
   return params;
 }
