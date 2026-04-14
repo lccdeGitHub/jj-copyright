@@ -2,7 +2,11 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="晋江维权">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="/manifest.json">
 <title>晋江版权维权系统</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -37,6 +41,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom);
   -webkit-font-smoothing: antialiased;
 }
 
