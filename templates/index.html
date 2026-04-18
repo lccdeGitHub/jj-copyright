@@ -1943,9 +1943,26 @@ async function init() {
   }
 
   try {
-    // Only load books data initially
+    // Load books data initially
     await fetchBooksPage(1);
     tabLoaded.books = true;
+
+    // Load notes data for read stats (needed for books tab)
+    try {
+      const notesRes = await fetch('/api/notes');
+      const allNotes = await notesRes.json();
+      notesByBook = {};
+      const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
+      noteList.forEach(item => {
+        const name = String(item.book_name || '').trim();
+        if (!name) return;
+        notesByBook[name] = item;
+      });
+      console.log(`[Init] Loaded ${noteList.length} notes`);
+    } catch (notesErr) {
+      console.warn('[Init] Failed to load notes:', notesErr.message);
+      notesByBook = {};
+    }
 
     buildFilterOptions();
     buildMediaCategories();
@@ -2885,21 +2902,8 @@ async function loadMediaTab() {
   grid.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>正在加载素材数据...</div>';
 
   try {
-    const [notesRes, mediaRes] = await Promise.all([
-      fetch('/api/notes'),
-      fetch('/api/media')
-    ]);
-
-    const allNotes = await notesRes.json();
+    const mediaRes = await fetch('/api/media');
     allMedia = await mediaRes.json();
-
-    notesByBook = {};
-    const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
-    noteList.forEach(item => {
-      const name = String(item.book_name || '').trim();
-      if (!name) return;
-      notesByBook[name] = item;
-    });
 
     buildMediaCategories();
     tabLoaded.media = true;
@@ -3647,18 +3651,26 @@ async function fetchJinbangRows() {
   jinbangLoading = true;
 
   try {
+    console.log(`[Jinbang] Fetching data: orderstr=${list.orderstr}, t=${list.t}`);
     const params = new URLSearchParams({ orderstr: list.orderstr, t: list.t });
     const res = await fetch(`/api/topten?${params.toString()}`);
-    if (!res.ok) throw new Error('请求失败');
+    if (!res.ok) throw new Error(`HTTP ${res.status}: 请求失败`);
     const data = await res.json();
     jinbangRows = Array.isArray(data) ? data : [];
     jinbangLoadError = false;
+    console.log(`[Jinbang] Data fetch success, records: ${jinbangRows.length}`);
   } catch (err) {
+    console.error('[Jinbang] Fetch error:', err.message);
     jinbangRows = [];
     jinbangLoadError = true;
   } finally {
     jinbangLoading = false;
   }
+}
+
+function formatJinbangCell(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? fmtNum(number) : escHtml(String(value || ''));
 }
 
 function formatPublishTime(timeStr) {
@@ -3670,39 +3682,55 @@ function formatPublishTime(timeStr) {
 
 async function renderJinbangRankings() {
   const tbody = document.getElementById('jinbangTableBody');
-  if (!tbody) return;
-
-  await fetchJinbangRows();
-
-  if (jinbangLoadError) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
-  } else if (!Array.isArray(jinbangRows) || !jinbangRows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
-  } else {
-    tbody.innerHTML = jinbangRows.map(item => {
-      const rankNum = escHtml(String(item.rank_num ?? item.rank ?? ''));
-      const author = escHtml(String(item.author || ''));
-      const title = escHtml(String(item.title || ''));
-      const wordCount = formatJinbangCell(item.word_count);
-      const score = formatJinbangCell(item.score);
-      const publishTime = formatPublishTime(item.publish_time);
-      const authorUrl = escHtml(String(item.author_url || '#'));
-      const novelUrl = escHtml(String(item.novel_url || '#'));
-
-      return `
-        <tr>
-          <td class="rank-num">#${rankNum}</td>
-          <td><a href="${authorUrl}" target="_blank" rel="noopener">${author}</a></td>
-          <td><a href="${novelUrl}" target="_blank" rel="noopener">${title}</a></td>
-          <td>${wordCount}</td>
-          <td>${score}</td>
-          <td>${publishTime}</td>
-        </tr>
-      `;
-    }).join('');
+  if (!tbody) {
+    console.error('[Jinbang] tbody element not found');
+    return;
   }
 
-  if (document.getElementById('page-jinbang').style.display !== 'none') updateHeaderStats('jinbang');
+  try {
+    console.log('[Jinbang] Start fetching and rendering...');
+    await fetchJinbangRows();
+    console.log(`[Jinbang] After fetch: error=${jinbangLoadError}, rows=${jinbangRows.length}`);
+
+    if (jinbangLoadError) {
+      console.warn('[Jinbang] Load error flag set');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+    } else if (!Array.isArray(jinbangRows) || !jinbangRows.length) {
+      console.warn(`[Jinbang] No data: isArray=${Array.isArray(jinbangRows)}, length=${jinbangRows.length}`);
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
+    } else {
+      console.log(`[Jinbang] Rendering ${jinbangRows.length} rows...`);
+      tbody.innerHTML = jinbangRows.map(item => {
+        const rankNum = escHtml(String(item.rank_num ?? item.rank ?? ''));
+        const author = escHtml(String(item.author || ''));
+        const title = escHtml(String(item.title || ''));
+        const wordCount = formatJinbangCell(item.word_count);
+        const score = formatJinbangCell(item.score);
+        const publishTime = formatPublishTime(item.publish_time);
+        const authorUrl = escHtml(String(item.author_url || '#'));
+        const novelUrl = escHtml(String(item.novel_url || '#'));
+
+        return `
+          <tr>
+            <td class="rank-num">#${rankNum}</td>
+            <td><a href="${authorUrl}" target="_blank" rel="noopener">${author}</a></td>
+            <td><a href="${novelUrl}" target="_blank" rel="noopener">${title}</a></td>
+            <td>${wordCount}</td>
+            <td>${score}</td>
+            <td>${publishTime}</td>
+          </tr>
+        `;
+      }).join('');
+      console.log('[Jinbang] Rendering complete');
+    }
+
+    if (document.getElementById('page-jinbang').style.display !== 'none') {
+      updateHeaderStats('jinbang');
+    }
+  } catch (err) {
+    console.error('[Jinbang] Render error:', err);
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">数据渲染失败</td></tr>';
+  }
 }
 
 function setJinbangList(key) {
