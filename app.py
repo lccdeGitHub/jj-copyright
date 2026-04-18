@@ -76,6 +76,23 @@ def load_data():
         _data_cache = json.load(f)
     _cache_time = now
     return _data_cache
+_notes_cache = None
+_notes_cache_time = 0
+
+def get_notes_cached():
+    global _notes_cache, _notes_cache_time
+    now = time.time()
+    if _notes_cache is not None and now - _notes_cache_time < 300:
+        return _notes_cache
+    url = f"{SUPABASE_URL}/rest/v1/notes"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+    resp = req.get(url, headers=headers, params={"select": "book_name,status", "limit": 9999})
+    _notes_cache = resp.json()
+    _notes_cache_time = now
+    return _notes_cache
 
 @app.route("/")
 def index():
@@ -103,8 +120,8 @@ def api_books():
     # 如果需要按阅读状态筛选，先从notes表拿对应书名
     if read_status:
         try:
-            rows = supabase_get("notes", {"status": f"eq.{read_status}", "select": "book_name"})
-            read_books = {item["book_name"] for item in rows}
+            notes = get_notes_cached()
+            read_books = {item["book_name"] for item in notes if item.get("status") == read_status}
             data = [b for b in data if b.get("书名") in read_books]
         except:
             data = []
