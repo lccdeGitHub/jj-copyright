@@ -1302,6 +1302,137 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ── Mobile optimizations ── */
+@media (max-width: 768px) {
+  /* Tab bar horizontal scroll */
+  .tab-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex-shrink: 0;
+    min-height: 44px;
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  /* Filter row horizontal scroll */
+  .filter-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .filter-btn {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  /* All tables horizontal scroll */
+  .rank-table-wrap,
+  .author-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Jinbang table mobile optimizations */
+  .rank-table {
+    min-width: 600px; /* Ensure minimum width for scrolling */
+    font-size: 14px;
+  }
+  .rank-table th,
+  .rank-table td {
+    padding: 12px 8px;
+    line-height: 1.5;
+  }
+  .rank-table th {
+    font-size: 12px;
+  }
+  .rank-table tbody tr:nth-child(odd) td {
+    background: rgba(0, 0, 0, 0.02);
+  }
+  .rank-table tbody tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .rank-table tbody tr:hover td {
+    background: rgba(99, 102, 241, 0.08);
+  }
+
+  /* Hide category column on mobile */
+  .rank-table th:nth-child(4),
+  .rank-table td:nth-child(4) {
+    display: none;
+  }
+
+  /* Narrow rank column */
+  .rank-num {
+    width: 50px;
+    text-align: center;
+  }
+
+  /* Wide title column */
+  .rank-table td:nth-child(3) {
+    min-width: 200px;
+  }
+
+  /* Format publish time to year only - adjust for hidden category column */
+  .rank-table td:nth-child(6) {
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  /* Highlight links */
+  .rank-table a {
+    color: var(--blue);
+    font-weight: 600;
+  }
+  .rank-table a:hover {
+    color: var(--accent);
+  }
+
+  /* General mobile font adjustments */
+  body {
+    font-size: 14px;
+  }
+  .book-name {
+    font-size: 16px;
+  }
+  .card-meta {
+    font-size: 12px;
+  }
+  .empty {
+    font-size: 15px;
+  }
+
+  /* Touch-friendly buttons */
+  .ctrl-btn,
+  .btn-save-note,
+  .btn-note,
+  .modal-close,
+  .weekly-combobox-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  /* Modal adjustments */
+  .modal-box {
+    margin: 20px;
+    max-height: calc(100vh - 40px);
+  }
+
+  /* Grid adjustments */
+  .grid-wrap {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .g-card {
+    padding: 12px;
+  }
+}
 </style>
 </head>
 <body>
@@ -1687,6 +1818,18 @@ let favMin = 0;
 let favMax = 0;
 let selectedFavRange = '全部';
 
+// Lazy loading flags for each tab
+let tabLoaded = {
+  books: false,
+  media: false,
+  images: false,
+  rankings: false,
+  jinbang: false,
+  weekly: false,
+  bookmarks: false,
+  author: false
+};
+
 function getTabCount(tab) {
   if (tab === 'books') return Number.isFinite(bookTotal) ? bookTotal : (Array.isArray(allBooks) ? allBooks.length : 0);
   if (tab === 'media') return Array.isArray(allMedia) ? allMedia.length : 0;
@@ -1801,30 +1944,9 @@ async function init() {
   }
 
   try {
-    const [notesRes, mediaRes, bookmarksRes, imagesRes] = await Promise.all([
-      fetch('/api/notes'),
-      fetch('/api/media'),
-      fetch('/api/bookmarks'),
-      fetch('/api/images'),
-    ]);
-
-    const allNotes = await notesRes.json();
-    allMedia = await mediaRes.json();
-    allBookmarks = await bookmarksRes.json();
-    allImages = normalizeImageList(await imagesRes.json());
+    // Only load books data initially
     await fetchBooksPage(1);
-    await initRankings();
-    buildWeeklyChannelFilters();
-    buildWeeklyLevel2Filters();
-    await initWeeklyRankings();
-
-    notesByBook = {};
-    const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
-    noteList.forEach(item => {
-      const name = String(item.book_name || '').trim();
-      if (!name) return;
-      notesByBook[name] = item;
-    });
+    tabLoaded.books = true;
 
     buildFilterOptions();
     buildMediaCategories();
@@ -1833,26 +1955,10 @@ async function init() {
     initImageBedEvents();
     updateReadStats();
     applyFilter();
-    renderMedia();
-    renderBookmarks();
-    renderImageBed();
-    renderRankings();
-    renderWeeklyRankings();
   } catch(e) {
     document.getElementById('list').innerHTML =
       '<div class="empty"><div class="empty-icon">⚠️</div>数据加载失败</div>';
-    document.getElementById('mediaGrid').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>素材数据加载失败</div>';
-    document.getElementById('bookmarkList').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>收藏数据加载失败</div>';
-    document.getElementById('imageBedList').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>图床数据加载失败</div>';
-    document.getElementById('rankingTableBody').innerHTML =
-      '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
-    document.getElementById('weeklyGroups').innerHTML =
-      '<div class="empty"><div class="empty-icon">⚠️</div>周榜数据加载失败</div>';
   }
-  initAuthor();
 }
 
 function buildFilterOptions() {
@@ -2703,7 +2809,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Tab switching ──
-function switchTab(tab) {
+async function switchTab(tab) {
   activeTab = tab;
   const isBooks = tab === 'books';
   const isMedia = tab === 'media';
@@ -2730,6 +2836,24 @@ function switchTab(tab) {
   document.querySelectorAll('#page-books .filter-panel').forEach(p => p.classList.remove('open'));
   activePanel = null;
 
+  // Lazy load data for each tab
+  if (isMedia && !tabLoaded.media) {
+    await loadMediaTab();
+  } else if (isImages && !tabLoaded.images) {
+    await loadImagesTab();
+  } else if (isRankings && !tabLoaded.rankings) {
+    await loadRankingsTab();
+  } else if (isJinbang && !tabLoaded.jinbang) {
+    await loadJinbangTab();
+  } else if (isWeekly && !tabLoaded.weekly) {
+    await loadWeeklyTab();
+  } else if (isBookmarks && !tabLoaded.bookmarks) {
+    await loadBookmarksTab();
+  } else if (isAuthor && !tabLoaded.author) {
+    await loadAuthorTab();
+  }
+
+  // Render the tab content
   if (isMedia) {
     renderMedia();
   } else if (isImages) {
@@ -2752,6 +2876,117 @@ function switchTab(tab) {
 
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── Lazy loading functions for each tab ──
+async function loadMediaTab() {
+  const grid = document.getElementById('mediaGrid');
+  if (!grid) return;
+
+  grid.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>正在加载素材数据...</div>';
+
+  try {
+    const [notesRes, mediaRes] = await Promise.all([
+      fetch('/api/notes'),
+      fetch('/api/media')
+    ]);
+
+    const allNotes = await notesRes.json();
+    allMedia = await mediaRes.json();
+
+    notesByBook = {};
+    const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
+    noteList.forEach(item => {
+      const name = String(item.book_name || '').trim();
+      if (!name) return;
+      notesByBook[name] = item;
+    });
+
+    buildMediaCategories();
+    tabLoaded.media = true;
+  } catch (e) {
+    grid.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>素材数据加载失败</div>';
+  }
+}
+
+async function loadImagesTab() {
+  const list = document.getElementById('imageBedList');
+  if (!list) return;
+
+  list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>正在加载图床数据...</div>';
+
+  try {
+    const imagesRes = await fetch('/api/images');
+    allImages = normalizeImageList(await imagesRes.json());
+    tabLoaded.images = true;
+  } catch (e) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>图床数据加载失败</div>';
+  }
+}
+
+async function loadRankingsTab() {
+  const tbody = document.getElementById('rankingTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px"><div class="loading-indicator"><span class="spinner"></span>正在加载榜单数据...</div></td></tr>';
+
+  try {
+    await initRankings();
+    tabLoaded.rankings = true;
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+  }
+}
+
+async function loadJinbangTab() {
+  // Jinbang data is loaded on demand in renderJinbangRankings()
+  tabLoaded.jinbang = true;
+}
+
+async function loadWeeklyTab() {
+  const groups = document.getElementById('weeklyGroups');
+  if (!groups) return;
+
+  groups.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>正在加载周榜数据...</div>';
+
+  try {
+    buildWeeklyChannelFilters();
+    buildWeeklyLevel2Filters();
+    await initWeeklyRankings();
+    tabLoaded.weekly = true;
+  } catch (e) {
+    groups.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>周榜数据加载失败</div>';
+  }
+}
+
+async function loadBookmarksTab() {
+  const list = document.getElementById('bookmarkList');
+  if (!list) return;
+
+  list.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div>正在加载收藏数据...</div>';
+
+  try {
+    const bookmarksRes = await fetch('/api/bookmarks');
+    allBookmarks = await bookmarksRes.json();
+    buildBookmarkTagFilters();
+    tabLoaded.bookmarks = true;
+  } catch (e) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>收藏数据加载失败</div>';
+  }
+}
+
+async function loadAuthorTab() {
+  const content = document.getElementById('authorContent');
+  if (!content) return;
+
+  content.innerHTML = '<div class="author-empty"><div class="author-empty-icon">⏳</div>正在加载作者数据...</div>';
+
+  try {
+    await initAuthor();
+    tabLoaded.author = true;
+  } catch (e) {
+    content.innerHTML = '<div class="author-empty"><div class="author-empty-icon">⚠️</div>作者数据加载失败</div>';
+  }
 }
 
 function normalizeMediaCategory(raw) {
@@ -3427,9 +3662,11 @@ async function fetchJinbangRows() {
   }
 }
 
-function formatJinbangCell(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? fmtNum(number) : escHtml(String(value || ''));
+function formatPublishTime(timeStr) {
+  if (!timeStr) return '';
+  // Extract year from date string (assuming format like "2024-01-01" or "2024年01月01日")
+  const yearMatch = timeStr.match(/(\d{4})/);
+  return yearMatch ? yearMatch[1] + '年' : timeStr;
 }
 
 async function renderJinbangRankings() {
@@ -3450,7 +3687,7 @@ async function renderJinbangRankings() {
       const category = escHtml(String(item.category || ''));
       const wordCount = formatJinbangCell(item.word_count);
       const score = formatJinbangCell(item.score);
-      const publishTime = escHtml(String(item.publish_time || ''));
+      const publishTime = formatPublishTime(item.publish_time);
       const authorUrl = escHtml(String(item.author_url || '#'));
       const novelUrl = escHtml(String(item.novel_url || '#'));
 
