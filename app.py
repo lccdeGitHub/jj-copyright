@@ -357,6 +357,18 @@ def get_weekly_periods():
         return jsonify(periods)
     return jsonify([])
 
+@app.route("/api/topten")
+def get_topten():
+    orderstr = request.args.get("orderstr", "21")
+    t = request.args.get("t", "1")
+    result = supabase_get("topten_rankings", {
+        "orderstr": f"eq.{orderstr}",
+        "t": f"eq.{t}",
+        "order": "rank_num.asc",
+        "limit": 200
+    })
+    return jsonify(result if isinstance(result, list) else [])
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

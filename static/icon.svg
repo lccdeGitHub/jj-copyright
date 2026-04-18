@@ -1,0 +1,45 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7c6ff7"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </radialGradient>
+    <radialGradient id="canopy1" cx="50%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#86efac"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </radialGradient>
+    <radialGradient id="canopy2" cx="50%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#6ee7b7"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 圆角方形背景（iOS风格） -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+
+  <!-- 树干 -->
+  <rect x="238" y="320" width="36" height="110" rx="18" fill="#92400e"/>
+  <rect x="248" y="320" width="16" height="110" rx="8" fill="#a16207" opacity="0.5"/>
+
+  <!-- 树根 -->
+  <path d="M238 420 Q210 440 190 445" stroke="#92400e" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <path d="M274 420 Q302 440 322 445" stroke="#92400e" stroke-width="10" fill="none" stroke-linecap="round"/>
+
+  <!-- 后层树冠 -->
+  <ellipse cx="256" cy="230" rx="105" ry="95" fill="#15803d" opacity="0.6"/>
+
+  <!-- 左右树冠 -->
+  <ellipse cx="195" cy="255" rx="80" ry="72" fill="url(#canopy2)"/>
+  <ellipse cx="317" cy="255" rx="80" ry="72" fill="url(#canopy2)"/>
+
+  <!-- 主树冠 -->
+  <ellipse cx="256" cy="210" rx="110" ry="100" fill="url(#canopy1)"/>
+
+  <!-- 高光 -->
+  <ellipse cx="230" cy="175" rx="45" ry="35" fill="#bbf7d0" opacity="0.4"/>
+
+  <!-- 星点装饰 -->
+  <circle cx="180" cy="150" r="5" fill="#fef9c3" opacity="0.8"/>
+  <circle cx="340" cy="170" r="4" fill="#fef9c3" opacity="0.7"/>
+  <circle cx="310" cy="130" r="3" fill="#fef9c3" opacity="0.6"/>
+</svg>
