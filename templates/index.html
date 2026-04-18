@@ -1334,6 +1334,7 @@ body {
     <button class="tab-btn" id="tab-media" onclick="switchTab('media')">🎬 素材库</button>
     <button class="tab-btn" id="tab-images" onclick="switchTab('images')">🖼️ 图床</button>
     <button class="tab-btn" id="tab-rankings" onclick="switchTab('rankings')">🏆 千字收益榜</button>
+    <button class="tab-btn" id="tab-jinbang" onclick="switchTab('jinbang')">🏆 金榜</button>
     <button class="tab-btn" id="tab-weekly" onclick="switchTab('weekly')">📅 周榜</button>
     <button class="tab-btn" id="tab-bookmarks" onclick="switchTab('bookmarks')">⭐ 收藏夹</button>
     <button class="tab-btn" id="tab-author" onclick="switchTab('author')">📊 作者数据</button>
@@ -1509,6 +1510,34 @@ body {
   </div>
 </div>
 
+<div id="page-jinbang" style="display:none">
+  <div class="rank-wrap">
+    <div class="rank-toolbar" style="justify-content: flex-start; gap: 8px; padding-bottom: 0;">
+      <button class="filter-btn active" id="jinbang-tab-pure" data-jinbang-key="pure_love" onclick="setJinbangList('pure_love')">纯爱千字金榜</button>
+      <button class="filter-btn" id="jinbang-tab-romance" data-jinbang-key="romance" onclick="setJinbangList('romance')">言情千字金榜</button>
+      <button class="filter-btn" id="jinbang-tab-finished_score" data-jinbang-key="finished_score" onclick="setJinbangList('finished_score')">完结高分榜</button>
+    </div>
+    <div class="rank-table-wrap">
+      <table class="rank-table">
+        <thead>
+          <tr>
+            <th>排名</th>
+            <th>作者</th>
+            <th>作品</th>
+            <th>类型</th>
+            <th>字数</th>
+            <th>积分</th>
+            <th>发表时间</th>
+          </tr>
+        </thead>
+        <tbody id="jinbangTableBody">
+          <tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div id="page-weekly" style="display:none">
   <div class="weekly-wrap">
     <div class="weekly-toolbar">
@@ -1629,6 +1658,16 @@ let weeklyLevel2Composing = false;
 let weeklyComboboxOpen = false;
 let weeklyRows = [];
 const WEEKLY_CHANNEL_OPTIONS = ['现言', '古言', '纯爱', '衍生', '混合', '黑名单'];
+
+const JINBANG_LISTS = {
+  pure_love: { label: '纯爱千字金榜', orderstr: '21', t: '1' },
+  romance: { label: '言情千字金榜', orderstr: '21', t: '0' },
+  finished_score: { label: '完结高分榜', orderstr: '20', t: '0' },
+};
+let jinbangRows = [];
+let selectedJinbangKey = 'pure_love';
+let jinbangLoading = false;
+let jinbangLoadError = false;
 const BOOKMARK_PRESET_TAGS = [
   '写作素材', '人物参考', '世界观设定', '情节灵感', '对话参考', '女性成长',
   '情感', '社会观察', '日常灵感', '工具', '教程', '好文推荐'
@@ -1656,6 +1695,7 @@ function getTabCount(tab) {
     return allImages.filter(item => !(item && item.name && hiddenImageNames.has(item.name))).length;
   }
   if (tab === 'rankings') return Array.isArray(allRankings) ? allRankings.length : 0;
+  if (tab === 'jinbang') return Array.isArray(jinbangRows) ? jinbangRows.length : 0;
   if (tab === 'weekly') return Array.isArray(weeklyRows) ? weeklyRows.length : 0;
   if (tab === 'bookmarks') return Array.isArray(allBookmarks) ? allBookmarks.length : 0;
   if (tab === 'author') return Array.isArray(authorHistory) ? authorHistory.length : 0;
@@ -1674,6 +1714,8 @@ function updateHeaderStats(tab = activeTab) {
     stats.textContent = `${count} 张图片`;
   } else if (tab === 'rankings') {
     stats.textContent = `${count} 条上榜记录`;
+  } else if (tab === 'jinbang') {
+    stats.textContent = `${count} 条金榜记录`;
   } else if (tab === 'weekly') {
     stats.textContent = `${count} 条周榜记录`;
   } else if (tab === 'bookmarks') {
@@ -2667,6 +2709,7 @@ function switchTab(tab) {
   const isMedia = tab === 'media';
   const isImages = tab === 'images';
   const isRankings = tab === 'rankings';
+  const isJinbang = tab === 'jinbang';
   const isWeekly = tab === 'weekly';
   const isBookmarks = tab === 'bookmarks';
   const isAuthor = tab === 'author';
@@ -2677,6 +2720,7 @@ function switchTab(tab) {
   document.getElementById('page-media').style.display = isMedia ? '' : 'none';
   document.getElementById('page-images').style.display = isImages ? '' : 'none';
   document.getElementById('page-rankings').style.display = isRankings ? '' : 'none';
+  document.getElementById('page-jinbang').style.display = isJinbang ? '' : 'none';
   document.getElementById('page-weekly').style.display = isWeekly ? '' : 'none';
   document.getElementById('page-bookmarks').style.display = isBookmarks ? '' : 'none';
   document.getElementById('page-author').style.display = isAuthor ? '' : 'none';
@@ -2692,6 +2736,8 @@ function switchTab(tab) {
     renderImageBed();
   } else if (isRankings) {
     renderRankings();
+  } else if (isJinbang) {
+    renderJinbangRankings();
   } else if (isWeekly) {
     renderWeeklyRankings();
   } else if (isBookmarks) {
@@ -3356,6 +3402,82 @@ function renderRankings() {
   }
 
   if (document.getElementById('page-rankings').style.display !== 'none') updateHeaderStats('rankings');
+}
+
+async function fetchJinbangRows() {
+  const list = JINBANG_LISTS[selectedJinbangKey];
+  const tbody = document.getElementById('jinbangTableBody');
+  if (!list || !tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px"><div class="loading-indicator"><span class="spinner"></span>正在加载...</div></td></tr>`;
+  jinbangLoading = true;
+
+  try {
+    const params = new URLSearchParams({ orderstr: list.orderstr, t: list.t });
+    const res = await fetch(`/api/topten?${params.toString()}`);
+    if (!res.ok) throw new Error('请求失败');
+    const data = await res.json();
+    jinbangRows = Array.isArray(data) ? data : [];
+    jinbangLoadError = false;
+  } catch (err) {
+    jinbangRows = [];
+    jinbangLoadError = true;
+  } finally {
+    jinbangLoading = false;
+  }
+}
+
+function formatJinbangCell(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? fmtNum(number) : escHtml(String(value || ''));
+}
+
+async function renderJinbangRankings() {
+  const tbody = document.getElementById('jinbangTableBody');
+  if (!tbody) return;
+
+  await fetchJinbangRows();
+
+  if (jinbangLoadError) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+  } else if (!Array.isArray(jinbangRows) || !jinbangRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
+  } else {
+    tbody.innerHTML = jinbangRows.map(item => {
+      const rankNum = escHtml(String(item.rank_num ?? item.rank ?? ''));
+      const author = escHtml(String(item.author || ''));
+      const title = escHtml(String(item.title || ''));
+      const category = escHtml(String(item.category || ''));
+      const wordCount = formatJinbangCell(item.word_count);
+      const score = formatJinbangCell(item.score);
+      const publishTime = escHtml(String(item.publish_time || ''));
+      const authorUrl = escHtml(String(item.author_url || '#'));
+      const novelUrl = escHtml(String(item.novel_url || '#'));
+
+      return `
+        <tr>
+          <td class="rank-num">#${rankNum}</td>
+          <td><a href="${novelUrl}" target="_blank" rel="noopener">${title}</a></td>
+          <td><a href="${authorUrl}" target="_blank" rel="noopener">${author}</a></td>
+          <td>${category}</td>
+          <td>${wordCount}</td>
+          <td>${score}</td>
+          <td>${publishTime}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (document.getElementById('page-jinbang').style.display !== 'none') updateHeaderStats('jinbang');
+}
+
+function setJinbangList(key) {
+  if (!JINBANG_LISTS[key] || key === selectedJinbangKey) return;
+  selectedJinbangKey = key;
+  document.querySelectorAll('#page-jinbang .filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.jinbangKey === key);
+  });
+  renderJinbangRankings();
 }
 
 function buildWeeklyChannelFilters() {
