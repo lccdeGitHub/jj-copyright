@@ -4340,6 +4340,7 @@ document.getElementById('bookmarkModal').addEventListener('click', e => {
 
 // ── Author data ──
 let authorHistory = [];
+const authorTrendCache = {};
 
 async function initAuthor() {
   try {
@@ -4358,54 +4359,67 @@ function numStr(val) {
   return isNaN(n) ? 0 : n;
 }
 function fmtNum(n) { return n.toLocaleString('zh-CN'); }
-function fmtFav(n) { return n >= 10000 ? (n / 10000).toFixed(1) + '万' : fmtNum(n); }
+function fmtFav(n) { return fmtNum(n); }
 
-// 生成数值差异标签，无变化时返回空字符串
-function diffBadge(cur, prevVal) {
-  if (prevVal === undefined || prevVal === null) return '';
-  const diff = numStr(cur) - numStr(prevVal);
-  if (diff > 0) return `<span class="fav-diff up">↑${fmtNum(diff)}</span>`;
-  if (diff < 0) return `<span class="fav-diff down">↓${fmtNum(-diff)}</span>`;
-  return '';
+async function fetchAuthorTrendSeries(bookName) {
+  if (!bookName) return [];
+  if (authorTrendCache[bookName]) return authorTrendCache[bookName];
+
+  try {
+    const res = await fetch('/api/author_stats_history?book_name=' + encodeURIComponent(bookName));
+    const raw = await res.json();
+    let rows = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.data) ? raw.data : []);
+    if (!rows.length && raw && Array.isArray(raw.history)) rows = raw.history;
+    const sorted = rows.slice().sort((a, b) => {
+      const t1 = new Date(a.scraped_at || a.timestamp || a.time || 0).getTime();
+      const t2 = new Date(b.scraped_at || b.timestamp || b.time || 0).getTime();
+      return t1 - t2;
+    });
+    const series = sorted
+      .map(item => numStr(item.fav_count ?? item.fav ?? item['收藏数'] ?? item.count ?? item.value))
+      .filter(value => Number.isFinite(value));
+    authorTrendCache[bookName] = series;
+    return series;
+  } catch (err) {
+    console.warn('[AuthorTrend] load failed', bookName, err);
+    authorTrendCache[bookName] = [];
+    return [];
+  }
 }
 
-function destroyAuthorCharts() {
-  authorCharts.forEach(chart => chart.destroy());
-  authorCharts = [];
-}
+function renderTrendCell(node, series) {
+  if (!Array.isArray(series) || series.length <= 1) {
+    node.innerHTML = '<span class="trend-empty">暂无趋势</span>';
+    return;
+  }
 
-function buildTrendSeries(bookName) {
-  return authorHistory
-    .map(record => {
-      const works = Array.isArray(record['作品列表']) ? record['作品列表'] : [];
-      const match = works.find(item => item['书名'] === bookName);
-      return match ? numStr(match['收藏数']) : null;
-    })
-    .filter(value => value !== null);
-}
+  const firstValue = series[0];
+  const lastValue = series[series.length - 1];
+  const diff = lastValue - firstValue;
+  let diffHtml = '<span class="fav-diff same">—</span>';
+  if (diff > 0) diffHtml = `<span class="fav-diff up">↑${fmtNum(diff)}</span>`;
+  if (diff < 0) diffHtml = `<span class="fav-diff down">↓${fmtNum(Math.abs(diff))}</span>`;
 
-function renderTrendCharts() {
-  destroyAuthorCharts();
-  document.querySelectorAll('[data-trend-book]').forEach(node => {
-    const bookName = node.dataset.trendBook;
-    const series = buildTrendSeries(bookName);
-    if (series.length <= 1) {
-      node.innerHTML = '<span class="trend-empty">暂无趋势数据</span>';
-      return;
-    }
+  node.innerHTML = `
+    <div class="trend-wrap">
+      <canvas class="trend-canvas" width="140" height="40"></canvas>
+      ${diffHtml}
+    </div>`;
 
-    node.innerHTML = `<canvas class="trend-canvas" width="200" height="60"></canvas>`;
-    const canvas = node.querySelector('canvas');
+  const canvas = node.querySelector('canvas');
+  if (!canvas || typeof Chart !== 'function') return;
+
+  try {
     const chart = new Chart(canvas, {
       type: 'line',
       data: {
         labels: series.map((_, index) => index + 1),
         datasets: [{
           data: series,
-          borderColor: '#6366F1',
-          backgroundColor: 'rgba(99,102,241,0.08)',
-          borderWidth: 2,
-          tension: 0.35,
+          borderColor: diff >= 0 ? '#22C55E' : '#EF4444',
+          backgroundColor: diff >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+          borderWidth: 1.5,
+          tension: 0.4,
           pointRadius: 0,
           fill: true,
         }],
@@ -4422,7 +4436,19 @@ function renderTrendCharts() {
       },
     });
     authorCharts.push(chart);
-  });
+  } catch (err) {
+    console.warn('[AuthorTrend] Chart render failed', node.dataset.trendBook, err);
+  }
+}
+
+async function renderTrendCharts() {
+  destroyAuthorCharts();
+  const nodes = Array.from(document.querySelectorAll('[data-trend-book]'));
+  await Promise.all(nodes.map(async node => {
+    const bookName = node.dataset.trendBook;
+    const series = await fetchAuthorTrendSeries(bookName);
+    renderTrendCell(node, series);
+  }));
 }
 
 function renderAuthorPage() {
@@ -4449,7 +4475,7 @@ function renderAuthorPage() {
     <div class="summary-card">
       <div class="summary-label">作者被收藏</div>
       <div class="summary-value ac" style="display:flex;align-items:center;gap:8px">
-        ♥ ${fmtFav(authorFav)}
+        ♥ ${fmtNum(authorFav)}
       </div>
     </div>
     <div class="summary-card">
@@ -4466,16 +4492,18 @@ function renderAuthorPage() {
     const fav      = numStr(book.fav_count);
     const link     = book.novel_url  || '';
 
+    const safeName = escHtml(name);
     const nameCell = link
-      ? `<a href="${link}" target="_blank" rel="noopener">${name}</a>`
-      : name;
+      ? `<a href="${link}" target="_blank" rel="noopener">${escHtml(name)}</a>`
+      : escHtml(name);
 
     return `<tr>
       <td class="at-name">${nameCell}</td>
-      <td><div class="at-fav">❤️ ${fmtFav(fav)}</div></td>
+      <td><div class="at-fav">❤️ ${fmtNum(fav)}</div></td>
       <td class="at-score">${score}</td>
       <td style="color:var(--text2)">${words}</td>
       <td class="at-progress">${progress}</td>
+      <td class="trend-cell" data-trend-book="${safeName}"><span class="trend-empty">加载中...</span></td>
     </tr>`;
   }).join('');
 
@@ -4489,10 +4517,13 @@ function renderAuthorPage() {
           <th>积分</th>
           <th>字数</th>
           <th>进度</th>
+          <th>趋势</th>
         </tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
       </table>
     </div>`;
+
+  renderTrendCharts();
 }
 
 window.addEventListener('scroll', onWindowScroll, { passive: true });
