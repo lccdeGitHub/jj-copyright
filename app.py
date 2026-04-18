@@ -299,9 +299,22 @@ def get_images():
 
 @app.route("/api/rankings/dates", methods=["GET"])
 def get_ranking_dates():
-    result = supabase_get("rankings", {"select": "rank_date"})
+    # 用order+limit只取rank_date列，Supabase侧去重
+    url = f"{SUPABASE_URL}/rest/v1/rankings"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Prefer": "count=none"
+    }
+    params = {
+        "select": "rank_date",
+        "order": "rank_date.desc",
+        "limit": 9999
+    }
+    r = req.get(url, headers=headers, params=params)
+    result = r.json()
     if isinstance(result, list):
-        dates = list(set([r["rank_date"] for r in result if r.get("rank_date")]))
+        dates = list(set([item["rank_date"] for item in result if item.get("rank_date")]))
         dates.sort(reverse=True)
         return jsonify(dates)
     return jsonify([])
