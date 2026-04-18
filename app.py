@@ -10,6 +10,10 @@ app = Flask(__name__)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://kmcgydyfnnelblhtyexv.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_GzL8hTs1moo6-NP5ErzERA_yuV37UYv")
 
+_data_cache = None
+_cache_time = 0
+
+
 def supabase_get(table, filters=None):
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     headers = {
@@ -64,9 +68,14 @@ def _read_json_file(path, default):
         return default
 
 def load_data():
-    path = os.path.join(os.path.dirname(__file__), "data.json")
-    data = _read_json_file(path, [])
-    return data if isinstance(data, list) else []
+    global _data_cache, _cache_time
+    now = time.time()
+    if _data_cache is not None and now - _cache_time < 600:
+        return _data_cache
+    with open("data.json", "r", encoding="utf-8") as f:
+        _data_cache = json.load(f)
+    _cache_time = now
+    return _data_cache
 
 @app.route("/")
 def index():
