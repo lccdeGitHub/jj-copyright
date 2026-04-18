@@ -1362,9 +1362,9 @@ body {
     background: rgba(99, 102, 241, 0.08);
   }
 
-  /* Hide category column on mobile */
-  .rank-table th:nth-child(4),
-  .rank-table td:nth-child(4) {
+  /* Hide category column on mobile for rankings tab only */
+  #page-rankings .rank-table th:nth-child(4),
+  #page-rankings .rank-table td:nth-child(4) {
     display: none;
   }
 
@@ -1655,14 +1655,13 @@ body {
             <th>排名</th>
             <th>作者</th>
             <th>作品</th>
-            <th>类型</th>
             <th>字数</th>
             <th>积分</th>
             <th>发表时间</th>
           </tr>
         </thead>
         <tbody id="jinbangTableBody">
-          <tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>
+          <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>
         </tbody>
       </table>
     </div>
@@ -3644,7 +3643,7 @@ async function fetchJinbangRows() {
   const tbody = document.getElementById('jinbangTableBody');
   if (!list || !tbody) return;
 
-  tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px"><div class="loading-indicator"><span class="spinner"></span>正在加载...</div></td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px"><div class="loading-indicator"><span class="spinner"></span>正在加载...</div></td></tr>`;
   jinbangLoading = true;
 
   try {
@@ -3676,15 +3675,14 @@ async function renderJinbangRankings() {
   await fetchJinbangRows();
 
   if (jinbangLoadError) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">榜单数据加载失败</td></tr>';
   } else if (!Array.isArray(jinbangRows) || !jinbangRows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无榜单数据</td></tr>';
   } else {
     tbody.innerHTML = jinbangRows.map(item => {
       const rankNum = escHtml(String(item.rank_num ?? item.rank ?? ''));
       const author = escHtml(String(item.author || ''));
       const title = escHtml(String(item.title || ''));
-      const category = escHtml(String(item.category || ''));
       const wordCount = formatJinbangCell(item.word_count);
       const score = formatJinbangCell(item.score);
       const publishTime = formatPublishTime(item.publish_time);
@@ -3694,9 +3692,8 @@ async function renderJinbangRankings() {
       return `
         <tr>
           <td class="rank-num">#${rankNum}</td>
-          <td><a href="${novelUrl}" target="_blank" rel="noopener">${title}</a></td>
           <td><a href="${authorUrl}" target="_blank" rel="noopener">${author}</a></td>
-          <td>${category}</td>
+          <td><a href="${novelUrl}" target="_blank" rel="noopener">${title}</a></td>
           <td>${wordCount}</td>
           <td>${score}</td>
           <td>${publishTime}</td>
@@ -4399,57 +4396,39 @@ function renderAuthorPage() {
     return;
   }
 
-  // 最后一条 = 最新，倒数第二条 = 上次
-  const latest = authorHistory[authorHistory.length - 1];
-  const prev   = authorHistory.length > 1 ? authorHistory[authorHistory.length - 2] : null;
+  // 数据现在是数组格式，每条记录包含 book_name, fav_count, word_count, score, progress, author_fav, scraped_at 等字段
+  const latest = authorHistory[0]; // 第一条记录为最新数据
+  const works = authorHistory;
 
-  // 构建上次书籍 map
-  const prevMap = {};
-  if (prev && Array.isArray(prev['作品列表'])) {
-    prev['作品列表'].forEach(b => { prevMap[b['书名']] = b; });
-  }
-
-  const works     = latest['作品列表'] || [];
-  const authorFav = numStr(latest['作者被收藏']);
-
-  // 作者被收藏变化
-  const authorFavDiff = prev ? diffBadge(latest['作者被收藏'], prev['作者被收藏']) : '';
+  // 从第一条记录获取作者信息
+  const authorFav = numStr(latest.author_fav);
+  const scrapedAt = latest.scraped_at || '未知';
 
   // ── Summary cards ──
   const summaryHtml = `
     <div class="summary-card">
       <div class="summary-label">最新抓取时间</div>
-      <div class="summary-value sm">${latest['抓取时间'] || '未知'}</div>
+      <div class="summary-value sm">${scrapedAt}</div>
     </div>
     <div class="summary-card">
       <div class="summary-label">作者被收藏</div>
       <div class="summary-value ac" style="display:flex;align-items:center;gap:8px">
-        ♥ ${fmtFav(authorFav)} ${authorFavDiff}
+        ♥ ${fmtFav(authorFav)}
       </div>
     </div>
     <div class="summary-card">
       <div class="summary-label">作品数量</div>
       <div class="summary-value">${works.length}</div>
-    </div>
-    ${authorHistory.length > 1 ? `
-    <div class="summary-card">
-      <div class="summary-label">对比基准</div>
-      <div class="summary-value sm" style="color:var(--text2)">${prev['抓取时间'] || '上次'}</div>
-    </div>` : ''}`;
+    </div>`;
 
   // ── Table rows ──
   const rowsHtml = works.map(book => {
-    const name     = book['书名']  || '';
-    const progress = book['进度']  || '';
-    const words    = book['字数']  || '';
-    const score    = book['积分']  || '';
-    const fav      = numStr(book['收藏数']);
-    const link     = book['链接']  || '';
-
-    const pb = prevMap[name] || null;
-    const favDiff   = pb ? diffBadge(book['收藏数'],  pb['收藏数'])  : '';
-    const scoreDiff = pb ? diffBadge(book['积分'],    pb['积分'])    : '';
-    const wordDiff  = pb ? diffBadge(book['字数'],    pb['字数'])    : '';
+    const name     = book.book_name  || '';
+    const progress = book.progress  || '';
+    const words    = book.word_count  || '';
+    const score    = book.score  || '';
+    const fav      = numStr(book.fav_count);
+    const link     = book.novel_url  || '';
 
     const nameCell = link
       ? `<a href="${link}" target="_blank" rel="noopener">${name}</a>`
@@ -4457,11 +4436,10 @@ function renderAuthorPage() {
 
     return `<tr>
       <td class="at-name">${nameCell}</td>
-      <td><div class="at-fav">♥ ${fmtFav(fav)} ${favDiff}</div></td>
-      <td class="at-score"><span class="value-with-diff">${score} ${scoreDiff}</span></td>
-      <td style="color:var(--text2)"><span class="value-with-diff">${words} ${wordDiff}</span></td>
+      <td><div class="at-fav">❤️ ${fmtFav(fav)}</div></td>
+      <td class="at-score">${score}</td>
+      <td style="color:var(--text2)">${words}</td>
       <td class="at-progress">${progress}</td>
-      <td class="trend-cell"><div class="trend-wrap" data-trend-book="${name.replace(/"/g, '&quot;')}"></div></td>
     </tr>`;
   }).join('');
 
@@ -4475,13 +4453,10 @@ function renderAuthorPage() {
           <th>积分</th>
           <th>字数</th>
           <th>进度</th>
-          <th>趋势</th>
         </tr></thead>
-        <tbody>${rowsHtml || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
+        <tbody>${rowsHtml || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px">暂无作品数据</td></tr>'}</tbody>
       </table>
     </div>`;
-
-  renderTrendCharts();
 }
 
 window.addEventListener('scroll', onWindowScroll, { passive: true });

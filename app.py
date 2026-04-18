@@ -145,8 +145,22 @@ def api_books():
     })
 @app.route("/api/author_data")
 def api_author_data():
-    path = os.path.join(os.path.dirname(__file__), "author_data.json")
-    data = _read_json_file(path, [])
+    # 获取最新一次抓取时间
+    latest = supabase_get("author_stats", {
+        "select": "scraped_at",
+        "order": "scraped_at.desc",
+        "limit": 1
+    })
+    if not latest or not isinstance(latest, list):
+        return jsonify([])
+    
+    latest_time = latest[0]["scraped_at"]
+    
+    # 获取该次抓取的所有书目数据
+    data = supabase_get("author_stats", {
+        "scraped_at": f"eq.{latest_time}",
+        "order": "id.asc"
+    })
     return jsonify(data if isinstance(data, list) else [])
 
 @app.route("/api/update_status", methods=["POST"])
