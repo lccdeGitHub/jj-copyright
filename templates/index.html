@@ -1760,6 +1760,7 @@ let loadMoreStatus = 'idle';
 let authorCharts = [];
 let currentModalBook = null;
 let currentModalRating = 0;
+let allNotes = [];  // Store original notes array for stats
 let notesByBook = {};
 
 let allMedia = [];
@@ -1950,17 +1951,20 @@ async function init() {
     // Load notes data for read stats (needed for books tab)
     try {
       const notesRes = await fetch('/api/notes');
-      const allNotes = await notesRes.json();
+      const notesData = await notesRes.json();
+      allNotes = Array.isArray(notesData) ? notesData : (notesData && Array.isArray(notesData.data) ? notesData.data : []);
+      
+      // Also build notesByBook for other functionality
       notesByBook = {};
-      const noteList = Array.isArray(allNotes) ? allNotes : (allNotes && Array.isArray(allNotes.data) ? allNotes.data : []);
-      noteList.forEach(item => {
+      allNotes.forEach(item => {
         const name = String(item.book_name || '').trim();
         if (!name) return;
         notesByBook[name] = item;
       });
-      console.log(`[Init] Loaded ${noteList.length} notes`);
+      console.log(`[Init] Loaded ${allNotes.length} notes`);
     } catch (notesErr) {
       console.warn('[Init] Failed to load notes:', notesErr.message);
+      allNotes = [];
       notesByBook = {};
     }
 
@@ -2120,12 +2124,16 @@ function updateReadStats() {
   let reading = 0;
   let todo = 0;
 
-  Object.values(notesByBook).forEach(note => {
-    const status = normalizeReadStatus(note ? note.status : '');
-    if (status === '已读') done++;
-    else if (status === '在读') reading++;
-    else if (status === '想读') todo++;
-  });
+  // Count directly from allNotes array
+  if (Array.isArray(allNotes)) {
+    allNotes.forEach(note => {
+      const status = note && note.status ? String(note.status).trim() : '';
+      if (status === '已读') done++;
+      else if (status === '在读') reading++;
+      else if (status === '想读') todo++;
+    });
+    console.log(`[Stats] done=${done}, reading=${reading}, todo=${todo}, total=${allNotes.length}`);
+  }
 
   document.getElementById('statTotalBooks').textContent = String(Number.isFinite(bookTotal) ? bookTotal : (allBooks.length || 0));
   document.getElementById('statReadDone').textContent = String(done);
