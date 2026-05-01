@@ -115,6 +115,7 @@ def api_books():
     fav_max = request.args.get("fav_max", "")
     page = int(request.args.get("page", 1))
     seed = request.args.get("seed", "")
+    era = request.args.get("era", "")
     page_size = 50
 
     # 如果需要按阅读状态筛选，先从notes表拿对应书名
@@ -144,7 +145,8 @@ def api_books():
         data = [b for b in data if parse_fav(b.get("收藏数", 0)) >= int(fav_min)]
     if fav_max:
         data = [b for b in data if parse_fav(b.get("收藏数", 0)) <= int(fav_max)]
-
+    if era:
+        data = [b for b in data if era in b.get("类型", "")]
     if seed:
         random.seed(int(seed))
     random.shuffle(data)

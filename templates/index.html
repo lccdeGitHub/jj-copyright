@@ -2198,7 +2198,7 @@ function toggleChip(el, type) {
   const setRef = getChipSetByType(type);
   if (!setRef || !val) return;
 
-  if ((type === 'channel' || type === 'read-status') && val !== '全部') {
+  if ((type === 'channel' || type === 'read-status' || type === 'era') && val !== '全部') {
     if (setRef.has(val)) {
       setRef.clear();
     } else {
@@ -2346,7 +2346,7 @@ function buildBooksQueryParams(page = 1) {
   if (selReadStatus.size === 1) params.set('read_status', String([...selReadStatus][0]));
   if (selChannel.size > 0) params.set('channel', String([...selChannel][0]));
   selType.forEach(type => params.append('type', type));
-  selEra.forEach(era => params.append('era', era));
+  if (selEra.size === 1) params.set('era', String([...selEra][0]));
   selTags.forEach(tag => params.append('tag', tag));
   selPiracy.forEach(piracy => params.append('piracy', piracy));
   if (favMin > 0) params.set('fav_min', String(favMin));
