@@ -116,6 +116,7 @@ def api_books():
     page = int(request.args.get("page", 1))
     seed = request.args.get("seed", "")
     era = request.args.get("era", "")
+    tag = request.args.get("tag", "")
     page_size = 50
 
     # 如果需要按阅读状态筛选，先从notes表拿对应书名
@@ -133,7 +134,8 @@ def api_books():
     if channel:
         # 频道藏在类型字段里，如"原创-纯爱-近代现代-剧情"
         data = [b for b in data if channel in b.get("类型", "")]
-
+    if tag:
+        data = [b for b in data if tag in b.get("内容标签", "")]
     # 收藏数筛选，去掉逗号转int
     def parse_fav(s):
         try:

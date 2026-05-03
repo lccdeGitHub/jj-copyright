@@ -1449,13 +1449,13 @@ body {
     </div>
     <div class="filter-row" id="filterRow">
       <button class="filter-btn" id="btnStatus" onclick="togglePanel('status')">状态 ▾</button>
+      <button class="filter-btn" id="btnChannel" onclick="togglePanel('channel')">频道 ▾</button>
+      <button class="filter-btn" id="btnFav" onclick="togglePanel('fav')">收藏数 ▾</button>
+      <button class="filter-btn" id="btnEra" onclick="togglePanel('era')">年代 ▾</button>
+      <button class="filter-btn" id="btnType" onclick="togglePanel('type')">类型 ▾</button>
       <button class="filter-btn" id="btnReadStatus" onclick="togglePanel('read-status')">阅读状态 ▾</button>
       <button class="filter-btn" id="btnReadRating" onclick="togglePanel('read-rating')">评分 ▾</button>
-      <button class="filter-btn" id="btnChannel" onclick="togglePanel('channel')">频道 ▾</button>
-      <button class="filter-btn" id="btnType" onclick="togglePanel('type')">类型 ▾</button>
-      <button class="filter-btn" id="btnEra" onclick="togglePanel('era')">年代 ▾</button>
       <button class="filter-btn" id="btnTag" onclick="togglePanel('tag')">标签 ▾</button>
-      <button class="filter-btn" id="btnFav" onclick="togglePanel('fav')">收藏数 ▾</button>
       <button class="filter-btn" id="btnPiracy" onclick="togglePanel('piracy')">盗版 ▾</button>
       <button class="filter-btn" onclick="clearAll()" style="color:var(--text3)">清除</button>
     </div>
@@ -2347,7 +2347,9 @@ function buildBooksQueryParams(page = 1) {
   if (selChannel.size > 0) params.set('channel', String([...selChannel][0]));
   selType.forEach(type => params.append('type', type));
   if (selEra.size === 1) params.set('era', String([...selEra][0]));
-  selTags.forEach(tag => params.append('tag', tag));
+  if (selTags.size > 0) {
+    params.set('tag', [...selTags].join(','));
+  }
   selPiracy.forEach(piracy => params.append('piracy', piracy));
   if (favMin > 0) params.set('fav_min', String(favMin));
   if (favMax > 0) params.set('fav_max', String(favMax));
